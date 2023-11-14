@@ -1,19 +1,19 @@
 const express = require('express')
 const router = express.Router()
 
-const questionController = require('../controllers/questionController')
-const teamController = require('../controllers/teamController')
-const userController = require('../controllers/userController')
+const socketController = require('../socket/index');
+
 
 router.get('/api', function(req, res, next) {
   res.send('hello world')
 });
 
-// router.get('/u/l', userController.getUsers);
-// 예시 controller에서 함수를 정의한다음 불러온다.
+router.get('/admin', socketController.onAdminRefresh);
+router.get('/waiting', socketController.onWaitingRefresh);
+router.get('/quiz', socketController.onQuizRefresh);
 
-// router.post('/d/l', designerController.getList);
-// router.post('/d/i', designerController.getInfo);
+
+router.get('/test', socketController.testApi)
 
 // router.post('/p/l', projectController.getList);
 // router.post('/p/i', projectController.getInfo);

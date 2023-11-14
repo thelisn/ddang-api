@@ -84,7 +84,16 @@ io.on('connection', (socket) => {
 
   socket.on('rejoin', (data) => {
     socketController.rejoin(socket, data);
-  })
+  });
+
+  socket.on('revive', (data) => {
+    socketController.revive(socket, data);
+  });
+  
+  socket.on('test', (data) => {
+    socketController.testSocket(socket, data);
+  });
+
 })
 
 http.listen(3100, function() {

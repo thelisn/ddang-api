@@ -24,6 +24,9 @@ module.exports = (sequelize, DataTypes) => {
     text: {
       type: DataTypes.STRING(200)
     },
+    number: {
+      type: DataTypes.INTEGER
+    }
   }, {
     sequelize,
     modelName: 'Answer',
