@@ -7,6 +7,7 @@ const { UserAnswer } = require('../models')
 const { Event } = require('../models')
 const { Answer } = require('../models')
 const EVENTNUM = 1;
+const Op = require('sequelize').Op;
 
 exports.login = async function (socket, value) {
   if (!value) {
@@ -130,10 +131,9 @@ exports.joinQuiz = async function (socket, data) {
   // 사용자가 탈락했는지 확인
   let isAlive = await UserAlive.findAll({
     where: {
-      einumber: data
+      einumber: data.einumber
     }
   }).then((res) => {
-    console.log(res);
     if (res[0].dataValues.deletedAt) {
       return false;
     } else {
@@ -143,14 +143,43 @@ exports.joinQuiz = async function (socket, data) {
 
   questionData['isAlive'] = isAlive;
 
-  // 퀴즈 푼 인원 업데이트
-  await QuestionStatus.update({ totalUserCount: sequelize.literal('totalUserCount + 1') }, {
+  // UserAnswer에 row 추가
+  await UserAnswer.findAll({
     where: {
+      einumber: data.einumber,
       questionId: currQuestion
+    }
+  }).then(async (res) => {
+    if (!res.length) {
+      await UserAnswer.create({
+        questionId: currQuestion,
+        einumber: data.einumber
+      });
+
+      // 퀴즈 푼 인원 업데이트
+      await QuestionStatus.update({ totalUserCount: sequelize.literal('totalUserCount + 1') }, {
+        where: {
+          questionId: currQuestion
+        }
+      });
+    } else {
+      await UserAnswer.findAll({
+        where: {
+          einumber: data.einumber,
+          questionId: currQuestion
+        }
+      }).then((res) => {
+        if (res[0].dataValues.answer) {
+          questionData['selectedAnswer'] = res[0].dataValues.answer;
+        }
+      })
     }
   });
 
-  socket.emit('join-quiz', questionData);
+
+
+  // socket.emit('join-quiz', questionData);
+  socket.broadcast.emit('join-quiz', questionData);
 }
 
 exports.joinAdminQuiz = async function (socket, data) {
@@ -227,10 +256,35 @@ exports.joinAdminQuiz = async function (socket, data) {
     return res[0].dataValues.currQuestion;
   })
 
+  // 퀴즈를 푼 인원
+  const currentUser = await UserAnswer.findAll({
+    where: {
+      questionId: currentQuestion,
+      answer: {
+        [Op.ne]: null
+      }
+    }
+  })
+  .then(res => {
+    return res.length;
+  })
+
+  // 퀴즈에 접속한 유저 인원
+  const totalUser = await QuestionStatus.findAll({
+    where: {
+      questionId: currentQuestion
+    }
+  })
+  .then(res => {
+    return res[0].dataValues.totalUserCount;
+  });
+
   let result = {
     questionData,
     userData,
-    currentQuestion
+    currentQuestion,
+    totalUser,
+    currentUser
   }
 
   setTimeout(() => {
@@ -265,21 +319,15 @@ exports.selectAnswer = async function (socket, data) {
       questionId: data.number,
     }
   }).then(async (res) => {
-    if (!res.length) {
-      UserAnswer.create({
-        questionId: data.number,
-        answer: data.answer,
-        einumber: data.userInfo.einumber
-      })
-    } else {
-      await UserAnswer.update({ answer: data.answer }, {
-        where: {
-          einumber: data.userInfo.einumber,
-          questionId: data.number
-        }
-      })
-    }
-  })
+    await UserAnswer.update({ answer: data.answer }, {
+      where: {
+        einumber: data.userInfo.einumber,
+        questionId: data.number
+      }
+    });
+  });
+
+  socket.broadcast.emit('select-answer');
 }
 
 exports.showAnswer = async function (socket, data) {
@@ -333,7 +381,6 @@ exports.checkAnswer = async function (socket, data) {
     },
     attributes: ['answer']
   }).then((res) => {
-    console.log(res)
     if (res.length) {
       return res[0].dataValues.answer;
     }
@@ -370,7 +417,6 @@ exports.checkAnswer = async function (socket, data) {
     for (let ele of res) {
       eiArray.push(ele.dataValues.einumber);
     }
-    console.log(eiArray);
   });
 
 
@@ -464,6 +510,40 @@ exports.revive = async function (socket, data) {
   socket.emit('revive');
 }
 
+exports.updateCurrentUser = async function (socket, data) {
+  let totalUser = await QuestionStatus.findAll({
+    where: {
+      questionId: data
+    }
+  })
+  .then(res => {
+    if (res.length) {
+      return res[0].dataValues.totalUserCount;
+    } else {
+      return 0
+    }
+  });
+
+  let currentUser = await UserAnswer.findAll({
+    where: {
+      questionId: data,
+      answer: {
+        [Op.ne]: null
+      }
+    }
+  })
+  .then(res => {
+    return res.length;
+  });
+  
+  let result = {
+    totalUser,
+    currentUser
+  }
+  
+  socket.emit('update-current-user', result);
+}
+
 
 // 새로고침 시 실행되는 함수
 exports.onAdminRefresh = async function (req, res) {
@@ -539,10 +619,37 @@ exports.onAdminRefresh = async function (req, res) {
     return res[0].dataValues.currQuestion;
   });
 
+  // 퀴즈를 푼 인원
+  const currentUser = await UserAnswer.findAll({
+    where: {
+        questionId: currentQuestion,
+        answer: {
+          [Op.ne]: null
+        }
+    }
+  })
+  .then(res => {
+    return res.length;
+  });
+
+  // 퀴즈에 접속한 유저 인원
+  const totalUser = await QuestionStatus.findAll({
+    where: {
+      questionId: currentQuestion
+    }
+  })
+  .then(res => {
+    if (res.length) {
+      return res[0].dataValues.totalUserCount;
+    }
+  });
+
   let result = {
     questionData,
     userData,
-    currentQuestion
+    currentQuestion,
+    currentUser,
+    totalUser
   }
 
   return res.json(result)

@@ -94,6 +94,10 @@ io.on('connection', (socket) => {
     socketController.testSocket(socket, data);
   });
 
+  socket.on('update-current-user', (data) => {
+    socketController.updateCurrentUser(socket, data);
+  });
+
 })
 
 http.listen(3100, function() {
