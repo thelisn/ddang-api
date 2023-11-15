@@ -2,12 +2,17 @@ let app = require('../app');
 let debug = require('debug')('api:server');
 let http = require('http');
 const path = require('path');
-require('dotenv').config({path: path.join(__dirname, '../.env')});
-// console.log(process.env.MYSQL_PASSWORD);
+const corsConfig = require('../config/cors')
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 let port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 let server = http.createServer(app);
+app.io.attach(server, {
+  cors: corsConfig
+});
+
+app.set('port', port);
 
 server.listen(port);
 server.on('error', onError);

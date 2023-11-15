@@ -1,17 +1,12 @@
+const path = require('path')
+require('dotenv').config({ path: path.join(__dirname, './.env') })
+
 const express = require('express')
 const session = require('express-session')
 const cookieParser = require('cookie-parser')
 const cors = require('cors')
 const corsConfig = require('./config/cors')
 let indexRouter = require('./routes/index')
-const db = require('./models');
-
-db.sequelize
-.sync()
-.then(() => {
-  console.log('DB 연결 성공하셨습니다.')
-})
-.catch(err => console.log(err))
 
 let app = express()
 app.use(cors(corsConfig))
@@ -40,20 +35,27 @@ app.use(function(req, res) {
   })
 })
 
+/*
+database
+ */
+const db = require('./models')
+
+db.sequelize
+  .sync()
+  .then(() => {
+    console.log('DB 연결 성공하셨습니다.')
+  })
+  .catch(err => console.log(err))
 
 
-// socket
-const socketController = require('./socket/index');
-const { Socket } = require('socket.io')
+/*
+socket
+ */
+const socketController = require('./socket/index')
 
-const http = require('http').createServer(express);
-const io = require('socket.io')(http, {
-  cors: {
-    origin: ['http://localhost:8080', 'https://admin.socket.io']
-  }
-});
+app.io = require('socket.io')()
 
-io.on('connection', (socket) => {
+app.io.on('connection', (socket) => {
   socket.on('login', (data) => {
     socketController.login(socket, data);
   });
@@ -99,9 +101,5 @@ io.on('connection', (socket) => {
   });
 
 })
-
-http.listen(3100, function() {
-  console.log('socket io server listening on port 3100')
-});
 
 module.exports = app

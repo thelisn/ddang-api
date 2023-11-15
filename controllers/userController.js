@@ -1,23 +1,48 @@
-const { User } = require('../models')
-const { sendResponse, sendError } = require('../utils/response')
+const { SOCKET_EVENT } = require('../socket')
 
-exports.login = async function (req, res) {
-  const where = {}
+const { Op } = require('sequelize')
+const { Event, User } = require('../models')
 
-  console.log(req, res)
-  return
-  
-  if (req.body.id) {
-    where.id = req.body.id
+exports.socketLogin = async function (socket, data) {
+  const event = await Event.findOne({
+    where: {
+      isEnd: false
+    }
+  })
+
+  if (!event) {
+    return socket.emit(SOCKET_EVENT.LOGIN, {
+      error: true,
+      msg: '진행 중인 퀴즈가 없습니다.'
+    })
   }
 
-  const searchResult = await User.findAll()
+  const user = await User.findOne({
+    where: {
+      [Op.or]: [{
+        einumber: data.id
+      }, {
+        name: data.id
+      }]
+    }
+  })
 
+  console.log(user)
 
-  const result = {
-    data: searchResult
+  if (!user) {
+    return socket.emit(SOCKET_EVENT.LOGIN, {
+      error: true,
+      msg: '사용자가 존재하지 않습니다.'
+    })
   }
 
-  return sendResponse(res, result, 200);
+  return socket.emit(SOCKET_EVENT.LOGIN, {
+    data: {
+      id: user.id,
+      name: user.name,
+      einumber: user.einumber,
+      teamId: user.teamId,
+      isAdmin: user.isAdmin
+    }
+  })
 }
-

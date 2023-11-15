@@ -1,3 +1,9 @@
+const SOCKET_EVENT = {
+  LOGIN: 'login'
+}
+
+exports.SOCKET_EVENT = SOCKET_EVENT
+
 const { User, sequelize } = require('../models')
 const { Team } = require('../models')
 const { QuestionStatus } = require('../models')
@@ -9,43 +15,26 @@ const { Answer } = require('../models')
 const EVENTNUM = 1;
 const Op = require('sequelize').Op;
 
-exports.login = async function (socket, value) {
-  if (!value) {
-    return socket.emit('login', {
-      error: true,
-      msg: '입력된 값이 없습니다.'
-    }); 
-  }
+const userController = require('../controllers/userController');
 
-  // 유저 정보
+exports.login = async function (socket, data) {
+  return await userController.socketLogin(socket, data)
+}
+
+exports.rejoin = async function (socket, data) {
+  // 전체 인원 정보
   User.belongsTo(Team, { foreignKey: 'teamId' });
 
-  const userInfo = await User.findAll({
-    where: {
-      einumber: value
-    },
-    include: [Team]
-  });
-
-  if (!userInfo[0]) {
-    return socket.emit('login', {
-      error: true,
-      msg: '사용자가 존재하지 않습니다.'
-    });
-  }
-
-
-  // 대기실 정보
   let teamData = [];
   const teamInfo = await User.findAll({
     include: [Team]
   });
-  
+
   for (const team of teamInfo) {
     let obj = {};
     obj['einumber'] = team.einumber,
-    obj['name'] = team.name,
-    obj['team'] = team.Team.name
+      obj['name'] = team.name,
+      obj['team'] = team.Team.name
 
     teamData.push(obj);
   }
@@ -61,37 +50,12 @@ exports.login = async function (socket, value) {
 
   currentQuestion = questionInfo[0].dataValues.currQuestion;
 
-  // 사용자가 생존했는지 확인을 위한 테이블 생성
-  if (!userInfo[0].isAdmin) {
-    UserAlive.create({
-      userId: userInfo[0].id,
-      deletedAt: null,
-      einumber: userInfo[0].einumber
-    });
-  };
-
-  
-  // 결과
   let result = {
-    error: false,
-    userData: {
-      id: userInfo[0].id,
-      einumber: userInfo[0].einumber,
-      name: userInfo[0].name,
-      isAdmin: userInfo[0].isAdmin,
-      team: userInfo[0].Team.name
-    },
     teamData,
     currentQuestion
   }
-  
-  // 메인 페이지에 login 이벤트 트리거
-  socket.emit('login', result);
 
-  // User, Admin 페이지에 login 이벤트 트리거
-  setTimeout(() => {
-    socket.emit('login', result);
-  }, 10);
+  socket.emit('rejoin', result);
 }
 
 exports.joinQuiz = async function (socket, data) {
@@ -461,43 +425,6 @@ exports.checkAnswer = async function (socket, data) {
     });
   }
   socket.emit('check-answer', result);
-}
-
-exports.rejoin = async function (socket, data) {
-  // 전체 인원 정보
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-
-  let teamData = [];
-  const teamInfo = await User.findAll({
-    include: [Team]
-  });
-  
-  for (const team of teamInfo) {
-    let obj = {};
-    obj['einumber'] = team.einumber,
-    obj['name'] = team.name,
-    obj['team'] = team.Team.name
-
-    teamData.push(obj);
-  }
-
-  // 현재 진행중인 문제
-  let currentQuestion = null;
-  const questionInfo = await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
-  });
-
-  currentQuestion = questionInfo[0].dataValues.currQuestion;
-
-  let result = {
-    teamData,
-    currentQuestion
-  }
-
-  socket.emit('rejoin', result);
 }
 
 exports.revive = async function (socket, data) {
