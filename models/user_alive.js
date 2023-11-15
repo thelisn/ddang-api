@@ -21,17 +21,11 @@ module.exports = (sequelize, DataTypes) => {
     userId: {
       type: DataTypes.INTEGER
     },
-    deletedAt: {
-      type: DataTypes.STRING(45)
-    },
-    einumber: {
-      type: DataTypes.STRING(45)
-    },
   }, {
     sequelize,
     modelName: 'UserAlive',
     tableName: 'user_alive',
-    timestamps: false,
+    timestamps: true,
   });
 
   return UserAlive;

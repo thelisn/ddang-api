@@ -18,20 +18,23 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    eventId: {
+      type: DataTypes.INTEGER
+    },
     questionId: {
+      type: DataTypes.INTEGER
+    },
+    number: {
       type: DataTypes.INTEGER
     },
     text: {
       type: DataTypes.STRING(200)
-    },
-    number: {
-      type: DataTypes.INTEGER
     }
   }, {
     sequelize,
     modelName: 'Answer',
     tableName: 'answer',
-    timestamps: false,
+    timestamps: true,
   });
 
   return Answer;

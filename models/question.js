@@ -18,6 +18,9 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    eventId: {
+      type: DataTypes.INTEGER
+    },
     number: {
       type: DataTypes.INTEGER
     },
@@ -25,13 +28,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(200)
     },
     type: {
-      type: DataTypes.STRING(45)
+      type: DataTypes.STRING(45),
+      default: "select"
     },
   }, {
     sequelize,
     modelName: 'Question',
     tableName: 'question',
-    timestamps: false,
+    timestamps: true,
   });
 
   return Question;

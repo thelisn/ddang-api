@@ -18,7 +18,13 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    eventId: {
+      type: DataTypes.INTEGER
+    },
     questionId: {
+      type: DataTypes.INTEGER
+    },
+    isCurrent: {
       type: DataTypes.INTEGER
     },
     totalUserCount: {
@@ -27,14 +33,11 @@ module.exports = (sequelize, DataTypes) => {
     correctUserCount: {
       type: DataTypes.INTEGER
     },
-    deletedAt: {
-      type: DataTypes.STRING(45)
-    },
   }, {
     sequelize,
     modelName: 'QuestionStatus',
     tableName: 'question_status',
-    timestamps: false,
+    timestamps: true,
   });
 
   return QuestionStatus;

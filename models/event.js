@@ -25,14 +25,11 @@ module.exports = (sequelize, DataTypes) => {
     isEnd: {
       type: DataTypes.BOOLEAN
     },
-    currQuestion: {
-      type: DataTypes.INTEGER
-    },
   }, {
     sequelize,
     modelName: 'Event',
     tableName: 'event',
-    timestamps: false,
+    timestamps: true,
   });
 
   return Event;

@@ -19,6 +19,9 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    eventId: {
+      type: DataTypes.INTEGER
+    },
     color: {
       type: DataTypes.STRING(45)
     },
@@ -29,7 +32,7 @@ module.exports = (sequelize, DataTypes) => {
     sequelize,
     modelName: 'Team',
     tableName: 'team',
-    timestamps: false,
+    timestamps: true,
   });
 
   return Team;

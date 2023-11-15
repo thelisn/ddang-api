@@ -18,17 +18,17 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    eventId: {
+      type: DataTypes.INTEGER
+    },
+    teamId: {
+      type: DataTypes.INTEGER
+    },
     einumber: {
       type: DataTypes.STRING(45)
     },
     name: {
       type: DataTypes.STRING(45)
-    },
-    teamId: {
-      type: DataTypes.INTEGER
-    },
-    eventId: {
-      type: DataTypes.INTEGER
     },
     isAdmin: {
       type: DataTypes.BOOLEAN
@@ -37,7 +37,7 @@ module.exports = (sequelize, DataTypes) => {
     sequelize,
     modelName: 'User',
     tableName: 'user',
-    timestamps: false,
+    timestamps: true,
   });
 
   return User;
