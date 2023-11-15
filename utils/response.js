@@ -1,4 +1,4 @@
-exports.sendError = function (res, code, message) {
+exports.sendError = function (res, code = 500, message = null) {
   let result = {
     success: false,
     code,
@@ -9,8 +9,7 @@ exports.sendError = function (res, code, message) {
 
 }
 
-exports.sendResponse = function (res, data, code, message) {
-  code = code || 200
+exports.sendResponse = function (res, data, code = 200, message = null) {
   const result = {
     success: true,
     code,

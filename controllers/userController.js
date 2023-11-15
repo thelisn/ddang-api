@@ -19,6 +19,7 @@ exports.socketLogin = async function (socket, data) {
 
   const user = await User.findOne({
     where: {
+      EventId: event.id,
       [Op.or]: [{
         einumber: data.id
       }, {
@@ -41,7 +42,7 @@ exports.socketLogin = async function (socket, data) {
       id: user.id,
       name: user.name,
       einumber: user.einumber,
-      teamId: user.teamId,
+      TeamId: user.TeamId,
       isAdmin: user.isAdmin
     }
   })
