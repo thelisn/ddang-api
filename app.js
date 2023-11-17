@@ -49,7 +49,7 @@ const { Socket } = require('socket.io')
 const http = require('http').createServer(express);
 const io = require('socket.io')(http, {
   cors: {
-    origin: ['http://localhost:8080', 'https://admin.socket.io']
+    origin: ['http://quiz.thelisn.com', 'http://localhost:8080', 'https://admin.socket.io']
   }
 });
 

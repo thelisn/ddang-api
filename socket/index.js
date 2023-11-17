@@ -22,7 +22,7 @@ exports.login = async function (socket, value) {
 
   const userInfo = await User.findAll({
     where: {
-      einumber: value
+      name: value
     },
     include: [Team]
   });
