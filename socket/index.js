@@ -150,6 +150,7 @@ exports.joinQuiz = async function (socket, data) {
       questionId: currQuestion
     }
   }).then(async (res) => {
+    console.log(res)
     if (!res.length) {
       await UserAnswer.create({
         questionId: currQuestion,
@@ -276,7 +277,9 @@ exports.joinAdminQuiz = async function (socket, data) {
     }
   })
   .then(res => {
-    return res[0].dataValues.totalUserCount;
+    if (res.length) {
+      return res[0].dataValues.totalUserCount;
+    }
   });
 
   let result = {
@@ -542,6 +545,55 @@ exports.updateCurrentUser = async function (socket, data) {
   }
   
   socket.emit('update-current-user', result);
+}
+
+exports.showEndWinner = async function (socket, data) {
+
+  // 유저정보 가져오기
+  User.hasMany(UserAlive);
+  User.belongsTo(Team, { foreignKey: 'teamId' });
+  UserAlive.belongsTo(User, { foreignKey: 'userId' });
+
+
+  let userData = [];
+  const userInfo = await User.findAll({
+    include: [UserAlive, Team]
+  })
+
+  for (const user of userInfo) {
+    let obj = {};
+
+    obj['einumber'] = user.dataValues.einumber;
+    obj['name'] = user.dataValues.name;
+    obj['teamName'] = user.dataValues.Team.dataValues.name;
+    obj['teamColor'] = user.dataValues.Team.dataValues.color;
+    if (user.dataValues.UserAlives.length) {
+      if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
+        obj['isAlive'] = true;
+      } else {
+        obj['isAlive'] = false;
+      }
+    }
+    
+    userData.push(obj);
+  }
+
+  let userDead = await UserAlive.findAll({
+    attributes: ['deletedAt', 'einumber'],
+  }).then(res => {
+    let losers = [];
+    if (res[0].deletedAt === 'dead') {
+      losers.push(res[0]);
+    }
+    return losers;
+  });
+
+  let result = {
+    userData,
+    userDead
+  }
+
+  socket.broadcast.emit('show-end-winner', result);
 }
 
 

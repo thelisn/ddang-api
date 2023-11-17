@@ -98,6 +98,10 @@ io.on('connection', (socket) => {
     socketController.updateCurrentUser(socket, data);
   });
 
+  socket.on('show-end-winner', (data) => {
+    socketController.showEndWinner(socket, data);
+  });
+
 })
 
 http.listen(3100, function() {
