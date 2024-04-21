@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       this.belongsTo(models.Team)
+      this.hasMany(models.UserAnswer)
     }
   }
 

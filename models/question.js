@@ -9,6 +9,7 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      this.hasOne(models.QuestionStatus)
     }
   }
 
@@ -18,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
-    eventId: {
+    EventId: {
       type: DataTypes.INTEGER
     },
     number: {
@@ -26,6 +27,9 @@ module.exports = (sequelize, DataTypes) => {
     },
     question: {
       type: DataTypes.STRING(200)
+    },
+    AnswerId: {
+      type: DataTypes.INTEGER
     },
     type: {
       type: DataTypes.STRING(45),

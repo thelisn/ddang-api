@@ -5,6 +5,8 @@ const teamController = require('../controllers/teamController');
 const questionController = require('../controllers/questionController');
 
 router.post('/team/list', teamController.getTeamList);
+
+router.post('/question/list', questionController.getQuestionList);
 router.post('/question/current', questionController.getCurrentQuestion);
 
 // const socketController = require('../socket/index');

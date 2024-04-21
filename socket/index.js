@@ -1,5 +1,7 @@
 const SOCKET_EVENT = {
-  LOGIN: 'login'
+  LOGIN: 'login',
+  START_QUIZ: 'start-quiz',
+  JOIN_QUIZ: 'join-quiz'
 }
 
 exports.SOCKET_EVENT = SOCKET_EVENT
@@ -21,258 +23,102 @@ exports.login = async function (socket, data) {
   return await userController.socketLogin(socket, data)
 }
 
-exports.rejoin = async function (socket, data) {
-  // 전체 인원 정보
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-
-  let teamData = [];
-  const teamInfo = await User.findAll({
-    include: [Team]
-  });
-
-  for (const team of teamInfo) {
-    let obj = {};
-    obj['einumber'] = team.einumber,
-      obj['name'] = team.name,
-      obj['team'] = team.Team.name
-
-    teamData.push(obj);
-  }
-
-  // 현재 진행중인 문제
-  let currentQuestion = null;
-  const questionInfo = await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
-  });
-
-  currentQuestion = questionInfo[0].dataValues.currQuestion;
-
-  let result = {
-    teamData,
-    currentQuestion
-  }
-
-  socket.emit('rejoin', result);
-}
-
 exports.joinQuiz = async function (socket, data) {
-  // 퀴즈 정보 가져오기
-  Question.hasMany(Answer);
-  Answer.belongsTo(Question, { foreignKey: 'questionId' });
-
-  let questionData = {};
-  let currQuestion = null;
-
-  await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
-  }).then(async (res) => {
-    currQuestion = res[0].dataValues.currQuestion;
-
-    const questionInfo = await Question.findAll({
-      where: {
-        number : currQuestion
-      },
-      include: [Answer]
-    });
-
-    let answers = [];
-    for (const answer of questionInfo[0].Answers) {
-      answers.push({ text: answer.dataValues.text })
-    };
-
-    questionData['number'] = questionInfo[0].dataValues.number;
-    questionData['question'] = questionInfo[0].dataValues.question;
-    questionData['type'] = questionInfo[0].dataValues.type;
-    questionData['answers'] = answers;
-  });
-
-  // 사용자가 탈락했는지 확인
-  let isAlive = await UserAlive.findAll({
-    where: {
-      einumber: data.einumber
-    }
-  }).then((res) => {
-    if (res[0].dataValues.deletedAt) {
-      return false;
-    } else {
-      return true;
-    }
-  });
-
-  questionData['isAlive'] = isAlive;
-
-  // UserAnswer에 row 추가
-  await UserAnswer.findAll({
-    where: {
-      einumber: data.einumber,
-      questionId: currQuestion
-    }
-  }).then(async (res) => {
-    if (!res.length) {
-      await UserAnswer.create({
-        questionId: currQuestion,
-        einumber: data.einumber
-      });
-
-      // 퀴즈 푼 인원 업데이트
-      await QuestionStatus.update({ totalUserCount: sequelize.literal('totalUserCount + 1') }, {
-        where: {
-          questionId: currQuestion
-        }
-      });
-    } else {
-      await UserAnswer.findAll({
-        where: {
-          einumber: data.einumber,
-          questionId: currQuestion
-        }
-      }).then((res) => {
-        if (res[0].dataValues.answer) {
-          questionData['selectedAnswer'] = res[0].dataValues.answer;
-        }
-      })
-    }
-  });
-
-
-
-  // socket.emit('join-quiz', questionData);
-  socket.broadcast.emit('join-quiz', questionData);
-}
-
-exports.joinAdminQuiz = async function (socket, data) {
-  // 문제 가져오기
-  Question.hasOne(QuestionStatus);
-  let questionData = [];
-  const questionInfo = await Question.findAll({
-    include: [QuestionStatus]
-  });
-
-  for (const question of questionInfo) {
-    let obj = {};
-
-    obj['number'] = question.dataValues.number;
-    obj['question'] = question.dataValues.question;
-    obj['type'] = question.dataValues.type;
-    
-    if (question.QuestionStatus) {
-      obj['totalUserCount'] = question.QuestionStatus.totalUserCount;
-      obj['correctUserCount'] = question.QuestionStatus.currentUserCount;
-      obj['isStarted'] = true;
-
-
-      if (question.QuestionStatus.deletedAt) {
-        obj['isFinished'] = true;
-      } else {
-        obj['isFinished'] = false;
-      }
-
-    } else {
-      obj['isStarted'] = false;
-    }
-
-    questionData.push(obj);
-  }
-
-  // 유저 정보 가져오기
-  User.hasMany(UserAlive);
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-  UserAlive.belongsTo(User, { foreignKey: 'userId' });
-
-
-  let userData = [];
-  const userInfo = await User.findAll({
-    include: [UserAlive, Team]
-  })
-
-  for (const user of userInfo) {
-    let obj = {};
-
-    obj['einumber'] = user.dataValues.einumber;
-    obj['name'] = user.dataValues.name;
-    obj['teamName'] = user.dataValues.Team.dataValues.name;
-    obj['teamColor'] = user.dataValues.Team.dataValues.color;
-
-    if (user.dataValues.UserAlives.length) {
-      if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
-        obj['isAlive'] = true;
-      } else {
-        obj['isAlive'] = false;
-      }
-    }
-    
-    userData.push(obj);
-  }
-
-  // 현재 진행중인 문제 가져오기
-  const currentQuestion = await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
-  }).then(res => {
-    return res[0].dataValues.currQuestion;
-  })
-
-  // 퀴즈를 푼 인원
-  const currentUser = await UserAnswer.findAll({
-    where: {
-      questionId: currentQuestion,
-      answer: {
-        [Op.ne]: null
-      }
-    }
-  })
-  .then(res => {
-    return res.length;
-  })
-
-  // 퀴즈에 접속한 유저 인원
-  const totalUser = await QuestionStatus.findAll({
-    where: {
-      questionId: currentQuestion
-    }
-  })
-  .then(res => {
-    return res[0].dataValues.totalUserCount;
-  });
-
-  let result = {
-    questionData,
-    userData,
-    currentQuestion,
-    totalUser,
-    currentUser
-  }
-
-  setTimeout(() => {
-    socket.emit('join-admin-quiz', result);
-  }, 10)
+  // // 퀴즈 정보 가져오기
+  // Question.hasMany(Answer);
+  // Answer.belongsTo(Question, { foreignKey: 'questionId' });
+  //
+  // let questionData = {};
+  // let currQuestion = null;
+  //
+  // await Event.findAll({
+  //   where: {
+  //     id: EVENTNUM
+  //   },
+  //   attributes: ['currQuestion']
+  // }).then(async (res) => {
+  //   currQuestion = res[0].dataValues.currQuestion;
+  //
+  //   const questionInfo = await Question.findAll({
+  //     where: {
+  //       number : currQuestion
+  //     },
+  //     include: [Answer]
+  //   });
+  //
+  //   let answers = [];
+  //   for (const answer of questionInfo[0].Answers) {
+  //     answers.push({ text: answer.dataValues.text })
+  //   };
+  //
+  //   questionData['number'] = questionInfo[0].dataValues.number;
+  //   questionData['question'] = questionInfo[0].dataValues.question;
+  //   questionData['type'] = questionInfo[0].dataValues.type;
+  //   questionData['answers'] = answers;
+  // });
+  //
+  // // 사용자가 탈락했는지 확인
+  // let isAlive = await UserAlive.findAll({
+  //   where: {
+  //     einumber: data.einumber
+  //   }
+  // }).then((res) => {
+  //   if (res[0].dataValues.deletedAt) {
+  //     return false;
+  //   } else {
+  //     return true;
+  //   }
+  // });
+  //
+  // questionData['isAlive'] = isAlive;
+  //
+  // // UserAnswer에 row 추가
+  // await UserAnswer.findAll({
+  //   where: {
+  //     einumber: data.einumber,
+  //     questionId: currQuestion
+  //   }
+  // }).then(async (res) => {
+  //   if (!res.length) {
+  //     await UserAnswer.create({
+  //       questionId: currQuestion,
+  //       einumber: data.einumber
+  //     });
+  //
+  //     // 퀴즈 푼 인원 업데이트
+  //     await QuestionStatus.update({ totalUserCount: sequelize.literal('totalUserCount + 1') }, {
+  //       where: {
+  //         questionId: currQuestion
+  //       }
+  //     });
+  //   } else {
+  //     await UserAnswer.findAll({
+  //       where: {
+  //         einumber: data.einumber,
+  //         questionId: currQuestion
+  //       }
+  //     }).then((res) => {
+  //       if (res[0].dataValues.answer) {
+  //         questionData['selectedAnswer'] = res[0].dataValues.answer;
+  //       }
+  //     })
+  //   }
+  // });
+  //
+  // // socket.emit('join-quiz', questionData);
+  // socket.broadcast.emit('join-quiz', questionData);
 }
 
 exports.startQuiz = async function (socket, data) {
-  // Question_Status 생성
   QuestionStatus.create({
-    questionId: data.questionNum,
-    totalUserCount: 0,
+    EventId: data.EventId,
+    QuestionId: data.id,
+    totalUserCount: 0, // TODO: 현재 생존자 수로
     correctUserCount: 0,
-    deletedAt: null
-  });
+    isCurrent: true
+  })
 
-  // Event의 currentQuestion 업데이트
-  await Event.update({ currQuestion: data.questionNum }, {
-    where: {
-      id: EVENTNUM
-    }
-  });
-
-  socket.broadcast.emit('start-quiz', true);
+  socket.broadcast.emit('start-quiz', data);
 }
 
 exports.selectAnswer = async function (socket, data) {
@@ -295,42 +141,30 @@ exports.selectAnswer = async function (socket, data) {
 }
 
 exports.showAnswer = async function (socket, data) {
-  // 정답 체크 후 맞은 인원 업데이트
-  let correctAnswer = await Question.findAll({
+  let answerList = await UserAnswer.findAll({
     where: {
-      number: data.currentQuestion._value
+      QuestionId: data.question.id,
+      AnswerId: data.question.AnswerId
     },
-    attributes: ['correctAnswer']
-  }).then(res => {    
-    return res[0].dataValues.correctAnswer
-  });
-
-  await UserAnswer.findAll({
-    where: {
-      questionId: data.currentQuestion._value,
-      answer: correctAnswer
-    }
-  }).then(async (res) => {
-    await QuestionStatus.update({ 
-      correctUserCount: res.length,
-      deletedAt: 'finished'
-    }, {
-      where: {
-        questionId: data.currentQuestion._value
+    include: [
+      {
+        model: User,
+        attributes: ['id', 'name', 'TeamId']
       }
-    })
-  });
+    ]
+  })
 
-  // 현재 진행중인 문제 업데이트
-  await Event.update({ currQuestion: null }, {
+  await QuestionStatus.update({
+    correctUserCount: answerList.length,
+    isCurrent: false
+  }, {
     where: {
-      id: EVENTNUM
+      QuestionId: data.question.id
     }
-  });
+  })
 
   let result = {
-    correctAnswer,
-    currentQuestion: data.currentQuestion._value
+    answerList: answerList.map(el => el.User)
   }
 
   socket.broadcast.emit('show-answer', result);

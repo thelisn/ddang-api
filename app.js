@@ -64,10 +64,6 @@ app.io.on('connection', (socket) => {
     socketController.joinQuiz(socket, data);
   });
 
-  socket.on('join-admin-quiz', (data) => {
-    socketController.joinAdminQuiz(socket, data);
-  });
-
   socket.on('start-quiz', (data) => {
     socketController.startQuiz(socket, data);
   });

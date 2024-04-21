@@ -9,6 +9,7 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      this.belongsTo(models.Question)
     }
   }
 
@@ -18,14 +19,14 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
-    eventId: {
+    EventId: {
       type: DataTypes.INTEGER
     },
-    questionId: {
+    QuestionId: {
       type: DataTypes.INTEGER
     },
     isCurrent: {
-      type: DataTypes.INTEGER
+      type: DataTypes.BOOLEAN
     },
     totalUserCount: {
       type: DataTypes.INTEGER
