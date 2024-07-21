@@ -1,5 +1,5 @@
-'use strict';
-const { Model } = require('sequelize');
+"use strict";
+const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class Question extends Model {
@@ -8,31 +8,36 @@ module.exports = (sequelize, DataTypes) => {
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
-    static associate(models) {
-    }
+    static associate(models) {}
   }
 
-  Question.init({
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true
+  Question.init(
+    {
+      id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+      },
+      number: {
+        type: DataTypes.INTEGER,
+      },
+      question: {
+        type: DataTypes.STRING(200),
+      },
+      type: {
+        type: DataTypes.STRING(45),
+      },
+      correctAnswer: {
+        type: DataTypes.INTEGER,
+      },
     },
-    number: {
-      type: DataTypes.INTEGER
-    },
-    question: {
-      type: DataTypes.STRING(200)
-    },
-    type: {
-      type: DataTypes.STRING(45)
-    },
-  }, {
-    sequelize,
-    modelName: 'Question',
-    tableName: 'question',
-    timestamps: false,
-  });
+    {
+      sequelize,
+      modelName: "Question",
+      tableName: "question",
+      timestamps: false,
+    }
+  );
 
   return Question;
 };
