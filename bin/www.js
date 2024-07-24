@@ -1,18 +1,18 @@
-let app = require('../app');
-let debug = require('debug')('api:server');
-let http = require('http');
-const path = require('path');
-require('dotenv').config({path: path.join(__dirname, '../.env')});
-// console.log(process.env.MYSQL_PASSWORD);
+let app = require("../app");
+let debug = require("debug")("api:server");
+let http = require("http");
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
-let port = normalizePort(process.env.PORT || '3000');
-app.set('port', port);
+
+// API Port
+let port = normalizePort(process.env.PORT || "3000");
+app.set("port", port);
 let server = http.createServer(app);
 
 server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
-console.log('listening on ' + port);
+server.on("error", onError);
+server.on("listening", onListening);
 
 function normalizePort(val) {
   let port = parseInt(val, 10);
@@ -31,22 +31,20 @@ function normalizePort(val) {
 }
 
 function onError(error) {
-  if (error.syscall !== 'listen') {
+  if (error.syscall !== "listen") {
     throw error;
   }
 
-  let bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+  let bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
-    case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
+    case "EACCES":
+      console.error(bind + " requires elevated privileges");
       process.exit(1);
       break;
-    case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
+    case "EADDRINUSE":
+      console.error(bind + " is already in use");
       process.exit(1);
       break;
     default:
@@ -56,8 +54,7 @@ function onError(error) {
 
 function onListening() {
   let addr = server.address();
-  let bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
-  debug('Listening on ' + bind);
+  let bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
+
+  debug("Listening on " + bind);
 }

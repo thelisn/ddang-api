@@ -1,51 +1,48 @@
-const { User, sequelize } = require('../models')
-const { Team } = require('../models')
-const { QuestionStatus } = require('../models')
-const { Question } = require('../models')
-const { UserAlive } = require('../models')
-const { UserAnswer } = require('../models')
-const { Event } = require('../models')
-const { Answer } = require('../models')
+const { User, sequelize } = require("../models");
+const { Team } = require("../models");
+const { QuestionStatus } = require("../models");
+const { Question } = require("../models");
+const { UserAlive } = require("../models");
+const { UserAnswer } = require("../models");
+const { Event } = require("../models");
+const { Answer } = require("../models");
 const EVENTNUM = 1;
-const Op = require('sequelize').Op;
+const Op = require("sequelize").Op;
 
 exports.login = async function (socket, value) {
   if (!value) {
-    return socket.emit('login', {
+    return socket.emit("login", {
       error: true,
-      msg: '입력된 값이 없습니다.'
-    }); 
-  }
-
-  // 유저 정보
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-
-  const userInfo = await User.findAll({
-    where: {
-      name: value
-    },
-    include: [Team]
-  });
-
-  if (!userInfo[0]) {
-    return socket.emit('login', {
-      error: true,
-      msg: '사용자가 존재하지 않습니다.'
+      msg: "입력된 값이 없습니다.",
     });
   }
 
+  // 유저 정보
+  User.belongsTo(Team, { foreignKey: "teamId" });
+
+  const userInfo = await User.findAll({
+    where: {
+      name: value,
+    },
+    include: [Team],
+  });
+
+  if (!userInfo[0]) {
+    return socket.emit("login", {
+      error: true,
+      msg: "사용자가 존재하지 않습니다.",
+    });
+  }
 
   // 대기실 정보
   let teamData = [];
   const teamInfo = await User.findAll({
-    include: [Team]
+    include: [Team],
   });
-  
+
   for (const team of teamInfo) {
     let obj = {};
-    obj['einumber'] = team.einumber,
-    obj['name'] = team.name,
-    obj['team'] = team.Team.name
+    (obj["einumber"] = team.einumber), (obj["name"] = team.name), (obj["team"] = team.Team.name);
 
     teamData.push(obj);
   }
@@ -54,9 +51,9 @@ exports.login = async function (socket, value) {
   let currentQuestion = null;
   const questionInfo = await Event.findAll({
     where: {
-      id: EVENTNUM
+      id: EVENTNUM,
     },
-    attributes: ['currQuestion']
+    attributes: ["currQuestion"],
   });
 
   currentQuestion = questionInfo[0].dataValues.currQuestion;
@@ -66,11 +63,10 @@ exports.login = async function (socket, value) {
     UserAlive.create({
       userId: userInfo[0].id,
       deletedAt: null,
-      einumber: userInfo[0].einumber
+      einumber: userInfo[0].einumber,
     });
-  };
+  }
 
-  
   // 결과
   let result = {
     error: false,
@@ -79,60 +75,60 @@ exports.login = async function (socket, value) {
       einumber: userInfo[0].einumber,
       name: userInfo[0].name,
       isAdmin: userInfo[0].isAdmin,
-      team: userInfo[0].Team.name
+      team: userInfo[0].Team.name,
     },
     teamData,
-    currentQuestion
-  }
-  
+    currentQuestion,
+  };
+
   // 메인 페이지에 login 이벤트 트리거
-  socket.emit('login', result);
+  socket.emit("login", result);
 
   // User, Admin 페이지에 login 이벤트 트리거
   setTimeout(() => {
-    socket.emit('login', result);
+    socket.emit("login", result);
   }, 10);
-}
+};
 
 exports.joinQuiz = async function (socket, data) {
   // 퀴즈 정보 가져오기
   Question.hasMany(Answer);
-  Answer.belongsTo(Question, { foreignKey: 'questionId' });
+  Answer.belongsTo(Question, { foreignKey: "questionId" });
 
   let questionData = {};
   let currQuestion = null;
 
   await Event.findAll({
     where: {
-      id: EVENTNUM
+      id: EVENTNUM,
     },
-    attributes: ['currQuestion']
+    attributes: ["currQuestion"],
   }).then(async (res) => {
     currQuestion = res[0].dataValues.currQuestion;
 
     const questionInfo = await Question.findAll({
       where: {
-        number : currQuestion
+        number: currQuestion,
       },
-      include: [Answer]
+      include: [Answer],
     });
 
     let answers = [];
     for (const answer of questionInfo[0].Answers) {
-      answers.push({ text: answer.dataValues.text })
-    };
+      answers.push({ text: answer.dataValues.text });
+    }
 
-    questionData['number'] = questionInfo[0].dataValues.number;
-    questionData['question'] = questionInfo[0].dataValues.question;
-    questionData['type'] = questionInfo[0].dataValues.type;
-    questionData['answers'] = answers;
+    questionData["number"] = questionInfo[0].dataValues.number;
+    questionData["question"] = questionInfo[0].dataValues.question;
+    questionData["type"] = questionInfo[0].dataValues.type;
+    questionData["answers"] = answers;
   });
 
   // 사용자가 탈락했는지 확인
   let isAlive = await UserAlive.findAll({
     where: {
-      einumber: data.einumber
-    }
+      einumber: data.einumber,
+    },
   }).then((res) => {
     if (res[0].dataValues.deletedAt) {
       return false;
@@ -141,178 +137,47 @@ exports.joinQuiz = async function (socket, data) {
     }
   });
 
-  questionData['isAlive'] = isAlive;
+  questionData["isAlive"] = isAlive;
 
   // UserAnswer에 row 추가
   await UserAnswer.findAll({
     where: {
       einumber: data.einumber,
-      questionId: currQuestion
-    }
+      questionId: currQuestion,
+    },
   }).then(async (res) => {
-    console.log(res)
     if (!res.length) {
       await UserAnswer.create({
         questionId: currQuestion,
-        einumber: data.einumber
+        einumber: data.einumber,
       });
 
       // 퀴즈 푼 인원 업데이트
-      await QuestionStatus.update({ totalUserCount: sequelize.literal('totalUserCount + 1') }, {
-        where: {
-          questionId: currQuestion
+      await QuestionStatus.update(
+        { totalUserCount: sequelize.literal("totalUserCount + 1") },
+        {
+          where: {
+            questionId: currQuestion,
+          },
         }
-      });
+      );
     } else {
       await UserAnswer.findAll({
         where: {
           einumber: data.einumber,
-          questionId: currQuestion
-        }
+          questionId: currQuestion,
+        },
       }).then((res) => {
         if (res[0].dataValues.answer) {
-          questionData['selectedAnswer'] = res[0].dataValues.answer;
+          questionData["selectedAnswer"] = res[0].dataValues.answer;
         }
-      })
+      });
     }
   });
-
-
 
   // socket.emit('join-quiz', questionData);
-  socket.broadcast.emit('join-quiz', questionData);
-}
-
-exports.joinAdminQuiz = async function (socket, data) {
-  // 문제 가져오기
-  Question.hasOne(QuestionStatus);
-  let questionData = [];
-  const questionInfo = await Question.findAll({
-    include: [QuestionStatus]
-  });
-
-  for (const question of questionInfo) {
-    let obj = {};
-
-    obj['number'] = question.dataValues.number;
-    obj['question'] = question.dataValues.question;
-    obj['type'] = question.dataValues.type;
-    
-    if (question.QuestionStatus) {
-      obj['totalUserCount'] = question.QuestionStatus.totalUserCount;
-      obj['correctUserCount'] = question.QuestionStatus.currentUserCount;
-      obj['isStarted'] = true;
-
-
-      if (question.QuestionStatus.deletedAt) {
-        obj['isFinished'] = true;
-      } else {
-        obj['isFinished'] = false;
-      }
-
-    } else {
-      obj['isStarted'] = false;
-    }
-
-    questionData.push(obj);
-  }
-
-  // 유저 정보 가져오기
-  User.hasMany(UserAlive);
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-  UserAlive.belongsTo(User, { foreignKey: 'userId' });
-
-
-  let userData = [];
-  const userInfo = await User.findAll({
-    include: [UserAlive, Team]
-  })
-
-  for (const user of userInfo) {
-    let obj = {};
-
-    obj['einumber'] = user.dataValues.einumber;
-    obj['name'] = user.dataValues.name;
-    obj['teamName'] = user.dataValues.Team.dataValues.name;
-    obj['teamColor'] = user.dataValues.Team.dataValues.color;
-
-    if (user.dataValues.UserAlives.length) {
-      if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
-        obj['isAlive'] = true;
-      } else {
-        obj['isAlive'] = false;
-      }
-    }
-    
-    userData.push(obj);
-  }
-
-  // 현재 진행중인 문제 가져오기
-  const currentQuestion = await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
-  }).then(res => {
-    return res[0].dataValues.currQuestion;
-  })
-
-  // 퀴즈를 푼 인원
-  const currentUser = await UserAnswer.findAll({
-    where: {
-      questionId: currentQuestion,
-      answer: {
-        [Op.ne]: null
-      }
-    }
-  })
-  .then(res => {
-    return res.length;
-  })
-
-  // 퀴즈에 접속한 유저 인원
-  const totalUser = await QuestionStatus.findAll({
-    where: {
-      questionId: currentQuestion
-    }
-  })
-  .then(res => {
-    if (res.length) {
-      return res[0].dataValues.totalUserCount;
-    }
-  });
-
-  let result = {
-    questionData,
-    userData,
-    currentQuestion,
-    totalUser,
-    currentUser
-  }
-
-  setTimeout(() => {
-    socket.emit('join-admin-quiz', result);
-  }, 10)
-}
-
-exports.startQuiz = async function (socket, data) {
-  // Question_Status 생성
-  QuestionStatus.create({
-    questionId: data.questionNum,
-    totalUserCount: 0,
-    correctUserCount: 0,
-    deletedAt: null
-  });
-
-  // Event의 currentQuestion 업데이트
-  await Event.update({ currQuestion: data.questionNum }, {
-    where: {
-      id: EVENTNUM
-    }
-  });
-
-  socket.broadcast.emit('start-quiz', true);
-}
+  socket.broadcast.emit("join-quiz", questionData);
+};
 
 exports.selectAnswer = async function (socket, data) {
   // 사용자가 보기 선택 시 User_Answer 테이블 생성 또는 업데이트
@@ -320,69 +185,30 @@ exports.selectAnswer = async function (socket, data) {
     where: {
       einumber: data.userInfo.einumber,
       questionId: data.number,
-    }
-  }).then(async (res) => {
-    await UserAnswer.update({ answer: data.answer }, {
-      where: {
-        einumber: data.userInfo.einumber,
-        questionId: data.number
-      }
-    });
-  });
-
-  socket.broadcast.emit('select-answer');
-}
-
-exports.showAnswer = async function (socket, data) {
-  // 정답 체크 후 맞은 인원 업데이트
-  let correctAnswer = await Question.findAll({
-    where: {
-      number: data.currentQuestion._value
     },
-    attributes: ['correctAnswer']
-  }).then(res => {    
-    return res[0].dataValues.correctAnswer
-  });
-
-  await UserAnswer.findAll({
-    where: {
-      questionId: data.currentQuestion._value,
-      answer: correctAnswer
-    }
   }).then(async (res) => {
-    await QuestionStatus.update({ 
-      correctUserCount: res.length,
-      deletedAt: 'finished'
-    }, {
-      where: {
-        questionId: data.currentQuestion._value
+    await UserAnswer.update(
+      { answer: data.answer },
+      {
+        where: {
+          einumber: data.userInfo.einumber,
+          questionId: data.number,
+        },
       }
-    })
+    );
   });
 
-  // 현재 진행중인 문제 업데이트
-  await Event.update({ currQuestion: null }, {
-    where: {
-      id: EVENTNUM
-    }
-  });
-
-  let result = {
-    correctAnswer,
-    currentQuestion: data.currentQuestion._value
-  }
-
-  socket.broadcast.emit('show-answer', result);
-}
+  socket.broadcast.emit("select-answer");
+};
 
 exports.checkAnswer = async function (socket, data) {
   // 유저가 선택한 답안
   let userAnswer = await UserAnswer.findAll({
     where: {
       einumber: data.userInfo.einumber,
-      questionId: data.number
+      questionId: data.number,
     },
-    attributes: ['answer']
+    attributes: ["answer"],
   }).then((res) => {
     if (res.length) {
       return res[0].dataValues.answer;
@@ -392,17 +218,17 @@ exports.checkAnswer = async function (socket, data) {
   // 문제 가져오기
   let questionData = await Question.findAll({
     where: {
-      number: data.number
-    }
+      number: data.number,
+    },
   }).then((res) => {
-    return res[0].dataValues
+    return res[0].dataValues;
   });
-  
+
   let answerData = [];
   await Answer.findAll({
     where: {
-      questionId: data.number
-    }
+      questionId: data.number,
+    },
   }).then((res) => {
     for (const ele of res) {
       answerData.push(ele.dataValues);
@@ -414,72 +240,70 @@ exports.checkAnswer = async function (socket, data) {
   await UserAnswer.findAll({
     where: {
       questionId: data.number,
-      answer: data.correctAnswer
-    }
+      answer: data.correctAnswer,
+    },
   }).then((res) => {
     for (let ele of res) {
       eiArray.push(ele.dataValues.einumber);
     }
   });
 
-
   let correctUserData = [];
-  User.belongsTo(Team, { foreignKey: 'teamId' });
+  User.belongsTo(Team, { foreignKey: "teamId" });
   await User.findAll({
     where: {
-      einumber: eiArray
+      einumber: eiArray,
     },
-    include: [Team]
+    include: [Team],
   }).then((res) => {
     for (let ele of res) {
       let obj = {};
-      obj['id'] = ele.dataValues.id;
-      obj['einumber'] = ele.dataValues.einumber;
-      obj['name'] = ele.dataValues.name;
-      obj['isAdmin'] = ele.dataValues.isAdmin;
-      obj['team'] = ele.dataValues.Team.dataValues.name;
-      correctUserData.push(obj)
+      obj["id"] = ele.dataValues.id;
+      obj["einumber"] = ele.dataValues.einumber;
+      obj["name"] = ele.dataValues.name;
+      obj["isAdmin"] = ele.dataValues.isAdmin;
+      obj["team"] = ele.dataValues.Team.dataValues.name;
+      correctUserData.push(obj);
     }
   });
-  
 
   let result = {
     userAnswer,
     correctAnswer: data.correctAnswer,
     answerData,
     questionData,
-    correctUserData
-  }
-
+    correctUserData,
+  };
 
   // 정답 비교 후 유저에게 전달
   if (userAnswer === data.correctAnswer) {
-    result['isCorrect'] = true;
+    result["isCorrect"] = true;
   } else {
-    result['isCorrect'] = false;
-    await UserAlive.update({ deletedAt: 'dead' }, {
-      where: {
-        einumber: data.userInfo.einumber
+    result["isCorrect"] = false;
+    await UserAlive.update(
+      { deletedAt: "dead" },
+      {
+        where: {
+          einumber: data.userInfo.einumber,
+        },
       }
-    });
+    );
   }
-  socket.emit('check-answer', result);
-}
+  socket.emit("check-answer", result);
+};
 
 exports.rejoin = async function (socket, data) {
   // 전체 인원 정보
-  User.belongsTo(Team, { foreignKey: 'teamId' });
+  User.belongsTo(Team, { foreignKey: "teamId" });
 
   let teamData = [];
   const teamInfo = await User.findAll({
-    include: [Team]
+    include: [Team],
   });
-  
+
   for (const team of teamInfo) {
     let obj = {};
-    obj['einumber'] = team.einumber,
-    obj['name'] = team.name,
-    obj['team'] = team.Team.name
+    (obj["einumber"] = team.einumber), (obj["name"] = team.name), (obj["team"] = team.Team.name);
 
     teamData.push(obj);
   }
@@ -488,144 +312,51 @@ exports.rejoin = async function (socket, data) {
   let currentQuestion = null;
   const questionInfo = await Event.findAll({
     where: {
-      id: EVENTNUM
+      id: EVENTNUM,
     },
-    attributes: ['currQuestion']
+    attributes: ["currQuestion"],
   });
 
   currentQuestion = questionInfo[0].dataValues.currQuestion;
 
   let result = {
     teamData,
-    currentQuestion
-  }
+    currentQuestion,
+  };
 
-  socket.emit('rejoin', result);
-}
-
-exports.revive = async function (socket, data) {
-  await UserAlive.update({deletedAt: null}, {
-    where: {
-      einumber: data.einumber
-    }
-  });
-
-  socket.emit('revive');
-}
-
-exports.updateCurrentUser = async function (socket, data) {
-  let totalUser = await QuestionStatus.findAll({
-    where: {
-      questionId: data
-    }
-  })
-  .then(res => {
-    if (res.length) {
-      return res[0].dataValues.totalUserCount;
-    } else {
-      return 0
-    }
-  });
-
-  let currentUser = await UserAnswer.findAll({
-    where: {
-      questionId: data,
-      answer: {
-        [Op.ne]: null
-      }
-    }
-  })
-  .then(res => {
-    return res.length;
-  });
-  
-  let result = {
-    totalUser,
-    currentUser
-  }
-  
-  socket.emit('update-current-user', result);
-}
-
-exports.showEndWinner = async function (socket, data) {
-
-  // 유저정보 가져오기
-  User.hasMany(UserAlive);
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-  UserAlive.belongsTo(User, { foreignKey: 'userId' });
+  socket.emit("rejoin", result);
+};
 
 
-  let userData = [];
-  const userInfo = await User.findAll({
-    include: [UserAlive, Team]
-  })
 
-  for (const user of userInfo) {
-    let obj = {};
-
-    obj['einumber'] = user.dataValues.einumber;
-    obj['name'] = user.dataValues.name;
-    obj['teamName'] = user.dataValues.Team.dataValues.name;
-    obj['teamColor'] = user.dataValues.Team.dataValues.color;
-    if (user.dataValues.UserAlives.length) {
-      if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
-        obj['isAlive'] = true;
-      } else {
-        obj['isAlive'] = false;
-      }
-    }
-    
-    userData.push(obj);
-  }
-
-  let userDead = await UserAlive.findAll({
-    attributes: ['deletedAt', 'einumber'],
-  }).then(res => {
-    let losers = [];
-    if (res[0].deletedAt === 'dead') {
-      losers.push(res[0]);
-    }
-    return losers;
-  });
-
-  let result = {
-    userData,
-    userDead
-  }
-
-  socket.broadcast.emit('show-end-winner', result);
-}
-
-
-// 새로고침 시 실행되는 함수
-exports.onAdminRefresh = async function (req, res) {
+// 어드민
+exports.joinAdminQuiz = async function (socket, data) {
   // 문제 가져오기
   Question.hasOne(QuestionStatus);
   let questionData = [];
   const questionInfo = await Question.findAll({
-    include: [QuestionStatus]
+    include: [QuestionStatus],
   });
 
   for (const question of questionInfo) {
     let obj = {};
 
-    obj['number'] = question.dataValues.number;
-    obj['question'] = question.dataValues.question;
-    obj['type'] = question.dataValues.type;
+    obj["number"] = question.dataValues.number;
+    obj["question"] = question.dataValues.question;
+    obj["type"] = question.dataValues.type;
 
     if (question.QuestionStatus) {
-      obj['totalUserCount'] = question.QuestionStatus.totalUserCount;
-      obj['correctUserCount'] = question.QuestionStatus.currentUserCount;
-      obj['isStarted'] = true;
+      obj["totalUserCount"] = question.QuestionStatus.totalUserCount;
+      obj["correctUserCount"] = question.QuestionStatus.currentUserCount;
+      obj["isStarted"] = true;
 
       if (question.QuestionStatus.deletedAt) {
-        obj['isFinished'] = true;
+        obj["isFinished"] = true;
       } else {
-        obj['isFinished'] = false;
+        obj["isFinished"] = false;
       }
-
     } else {
-      obj['isStarted'] = false;
+      obj["isStarted"] = false;
     }
 
     questionData.push(obj);
@@ -633,64 +364,61 @@ exports.onAdminRefresh = async function (req, res) {
 
   // 유저 정보 가져오기
   User.hasMany(UserAlive);
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-  UserAlive.belongsTo(User, { foreignKey: 'userId' });
-
+  User.belongsTo(Team, { foreignKey: "teamId" });
+  UserAlive.belongsTo(User, { foreignKey: "userId" });
 
   let userData = [];
   const userInfo = await User.findAll({
-    include: [UserAlive, Team]
-  })
+    include: [UserAlive, Team],
+  });
 
   for (const user of userInfo) {
     let obj = {};
 
-    obj['einumber'] = user.dataValues.einumber;
-    obj['name'] = user.dataValues.name;
-    obj['teamName'] = user.dataValues.Team.dataValues.name;
-    obj['teamColor'] = user.dataValues.Team.dataValues.color;
+    obj["einumber"] = user.dataValues.einumber;
+    obj["name"] = user.dataValues.name;
+    obj["teamName"] = user.dataValues.Team.dataValues.name;
+    obj["teamColor"] = user.dataValues.Team.dataValues.color;
 
     if (user.dataValues.UserAlives.length) {
       if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
-        obj['isAlive'] = true;
+        obj["isAlive"] = true;
       } else {
-        obj['isAlive'] = false;
+        obj["isAlive"] = false;
       }
     }
-    
+
     userData.push(obj);
   }
 
   // 현재 진행중인 문제 가져오기
   const currentQuestion = await Event.findAll({
     where: {
-      id: EVENTNUM
+      id: EVENTNUM,
     },
-    attributes: ['currQuestion']
-  }).then(res => {
+    attributes: ["currQuestion"],
+  }).then((res) => {
     return res[0].dataValues.currQuestion;
   });
 
   // 퀴즈를 푼 인원
   const currentUser = await UserAnswer.findAll({
     where: {
-        questionId: currentQuestion,
-        answer: {
-          [Op.ne]: null
-        }
-    }
-  })
-  .then(res => {
+      questionId: currentQuestion,
+      answer: {
+        [Op.ne]: null,
+      },
+    },
+  }).then((res) => {
     return res.length;
   });
 
   // 퀴즈에 접속한 유저 인원
   const totalUser = await QuestionStatus.findAll({
     where: {
-      questionId: currentQuestion
-    }
-  })
-  .then(res => {
+      questionId: currentQuestion,
+    },
+  }).then((res) => {
     if (res.length) {
       return res[0].dataValues.totalUserCount;
     }
@@ -700,135 +428,174 @@ exports.onAdminRefresh = async function (req, res) {
     questionData,
     userData,
     currentQuestion,
+    totalUser,
     currentUser,
-    totalUser
-  }
+  };
 
-  return res.json(result)
-}
+  setTimeout(() => {
+    socket.emit("join-admin-quiz", result);
+  }, 10);
+};
 
-exports.onWaitingRefresh = async function (req, res) {
-  // 전체 유저 정보
-  User.belongsTo(Team, { foreignKey: 'teamId' });
-
-  const userInfo = await User.findAll({
-    include: [Team]
+exports.startQuiz = async function (socket, data) {
+  // Question_Status 생성
+  QuestionStatus.create({
+    questionId: data.questionNum,
+    totalUserCount: 0,
+    correctUserCount: 0,
+    deletedAt: null,
   });
 
+  // Event의 currentQuestion 업데이트
+  await Event.update(
+    { currQuestion: data.questionNum },
+    {
+      where: {
+        id: EVENTNUM,
+      },
+    }
+  );
+
+  socket.broadcast.emit("start-quiz", true);
+};
+
+exports.showAnswer = async function (socket, data) {
+  // 정답 체크 후 맞은 인원 업데이트
+  let correctAnswer = await Question.findAll({
+    where: {
+      number: data.currentQuestion._value,
+    },
+    attributes: ["correctAnswer"],
+  }).then((res) => {
+    return res[0].dataValues.correctAnswer;
+  });
+
+  await UserAnswer.findAll({
+    where: {
+      questionId: data.currentQuestion._value,
+      answer: correctAnswer,
+    },
+  }).then(async (res) => {
+    await QuestionStatus.update(
+      {
+        correctUserCount: res.length,
+        deletedAt: "finished",
+      },
+      {
+        where: {
+          questionId: data.currentQuestion._value,
+        },
+      }
+    );
+  });
+
+  // 현재 진행중인 문제 업데이트
+  await Event.update(
+    { currQuestion: null },
+    {
+      where: {
+        id: EVENTNUM,
+      },
+    }
+  );
+
+  let result = {
+    correctAnswer,
+    currentQuestion: data.currentQuestion._value,
+  };
+
+  socket.broadcast.emit("show-answer", result);
+};
+
+
+exports.updateCurrentUser = async function (socket, data) {
+  let totalUser = await QuestionStatus.findAll({
+    where: {
+      questionId: data,
+    },
+  }).then((res) => {
+    if (res.length) {
+      return res[0].dataValues.totalUserCount;
+    } else {
+      return 0;
+    }
+  });
+
+  let currentUser = await UserAnswer.findAll({
+    where: {
+      questionId: data,
+      answer: {
+        [Op.ne]: null,
+      },
+    },
+  }).then((res) => {
+    return res.length;
+  });
+
+  let result = {
+    totalUser,
+    currentUser,
+  };
+
+  socket.emit("update-current-user", result);
+};
+
+exports.showEndWinner = async function (socket, data) {
+  // 유저정보 가져오기
+  User.hasMany(UserAlive);
+  User.belongsTo(Team, { foreignKey: "teamId" });
+  UserAlive.belongsTo(User, { foreignKey: "userId" });
+
   let userData = [];
+  const userInfo = await User.findAll({
+    include: [UserAlive, Team],
+  });
+
   for (const user of userInfo) {
     let obj = {};
-    obj['einumber'] = user.einumber,
-    obj['name'] = user.name,
-    obj['team'] = user.Team.name
+
+    obj["einumber"] = user.dataValues.einumber;
+    obj["name"] = user.dataValues.name;
+    obj["teamName"] = user.dataValues.Team.dataValues.name;
+    obj["teamColor"] = user.dataValues.Team.dataValues.color;
+    if (user.dataValues.UserAlives.length) {
+      if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
+        obj["isAlive"] = true;
+      } else {
+        obj["isAlive"] = false;
+      }
+    }
 
     userData.push(obj);
   }
 
-  // 현재 진행중인 문제 유무 확인
-  const currentQuestion = await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
+  let userDead = await UserAlive.findAll({
+    attributes: ["deletedAt", "einumber"],
+  }).then((res) => {
+    let losers = [];
+    if (res[0].deletedAt === "dead") {
+      losers.push(res[0]);
+    }
+    return losers;
   });
 
   let result = {
     userData,
-    currentQuestion: currentQuestion[0].dataValues.currQuestion
-  }
+    userDead,
+  };
 
-  return res.json(result)
-}
+  socket.broadcast.emit("show-end-winner", result);
+};
 
-exports.onQuizRefresh = async function (req, res) {
-  // 퀴즈 정보 가져오기
-  Question.hasMany(Answer);
-  Answer.belongsTo(Question, { foreignKey: 'questionId' });
-
-  let questionData = {};
-  let currQuestion = null;
-
-  await Event.findAll({
-    where: {
-      id: EVENTNUM
-    },
-    attributes: ['currQuestion']
-  }).then(async (res) => {
-    currQuestion = res[0].dataValues.currQuestion;
-
-    const questionInfo = await Question.findAll({
+exports.revive = async function (socket, data) {
+  await UserAlive.update(
+    { deletedAt: null },
+    {
       where: {
-        number : currQuestion
+        einumber: data.einumber,
       },
-      include: [Answer]
-    });
-
-    let answers = [];
-    for (const answer of questionInfo[0].Answers) {
-      answers.push({ text: answer.dataValues.text })
-    };
-
-    questionData['number'] = questionInfo[0].dataValues.number;
-    questionData['question'] = questionInfo[0].dataValues.question;
-    questionData['type'] = questionInfo[0].dataValues.type;
-    questionData['answers'] = answers;
-  });
-
-  // 사용자가 탈락했는지 확인
-  let isAlive = await UserAlive.findAll({
-    where: {
-      einumber: req.query.userInfo.einumber
     }
-  }).then((res) => {
-    if (res[0].dataValues.deletedAt) {
-      return false;
-    } else {
-      return true;
-    }
-  });
+  );
 
-  questionData['isAlive'] = isAlive;
-
-  // 기존에 선택한 보기가 있는지 확인
-  await UserAnswer.findAll({
-    where: {
-      questionId: currQuestion,
-      einumber: req.query.userInfo.einumber
-    }
-  }).then(res => {
-    if (res.length) {
-      questionData['selectedAnswer'] = res[0].dataValues.answer;
-    }
-  })
-
-  return res.json(questionData);
-}
-
-
-// 테스트용 함수
-exports.testApi = async function (req, res) {
-  console.log('test API')
-}
-
-exports.testSocket = async function (socket, data) {
-  let questionData = await Question.findAll({
-    where: {
-      number: data.number
-    }
-  }).then((res) => {
-    return res[0].dataValues
-  });
-  
-  let answerData = [];
-  await Answer.findAll({
-    where: {
-      questionId: data.number
-    }
-  }).then((res) => {
-    for (const ele of res) {
-      console.log(ele.dataValues);
-      answerData.push(ele.dataValues);
-    }
-  });
-}
+  socket.emit("revive");
+};
