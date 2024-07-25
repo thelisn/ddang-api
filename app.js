@@ -32,7 +32,9 @@ app.use(
 app.use("/api", indexRouter);
 
 // socket
-const socketController = require("./socket/index");
+const userSocketController = require("./socket/user.js");
+const adminSocketController = require("./socket/admin.js");
+
 const http = require("http").createServer(express);
 const io = require("socket.io")(http, {
   cors: {
@@ -41,52 +43,50 @@ const io = require("socket.io")(http, {
 });
 
 io.on("connection", (socket) => {
+  // User
   socket.on("login", (data) => {
-    socketController.login(socket, data);
-  });
-
-  socket.on("join-quiz", (data) => {
-    socketController.joinQuiz(socket, data);
-  });
-
-  socket.on("join-admin-quiz", (data) => {
-    socketController.joinAdminQuiz(socket, data);
-  });
-
-  socket.on("start-quiz", (data) => {
-    socketController.startQuiz(socket, data);
-  });
-
-  socket.on("select-answer", (data) => {
-    socketController.selectAnswer(socket, data);
-  });
-
-  socket.on("show-answer", (data) => {
-    socketController.showAnswer(socket, data);
-  });
-
-  socket.on("check-answer", (data) => {
-    socketController.checkAnswer(socket, data);
+    userSocketController.login(socket, data);
   });
 
   socket.on("rejoin", (data) => {
-    socketController.rejoin(socket, data);
+    userSocketController.rejoin(socket, data);
   });
 
-  socket.on("revive", (data) => {
-    socketController.revive(socket, data);
+  socket.on("join-quiz", (data) => {
+    userSocketController.joinQuiz(socket, data);
   });
 
-  socket.on("test", (data) => {
-    socketController.testSocket(socket, data);
+  socket.on("select-answer", (data) => {
+    userSocketController.selectAnswer(socket, data);
+  });
+
+  socket.on("check-answer", (data) => {
+    userSocketController.checkAnswer(socket, data);
+  });
+
+  // Admin
+  socket.on("join-admin-quiz", (data) => {
+    adminSocketController.joinAdminQuiz(socket, data);
+  });
+
+  socket.on("start-quiz", (data) => {
+    adminSocketController.startQuiz(socket, data);
+  });
+
+  socket.on("show-answer", (data) => {
+    adminSocketController.showAnswer(socket, data);
   });
 
   socket.on("update-current-user", (data) => {
-    socketController.updateCurrentUser(socket, data);
+    adminSocketController.updateCurrentUser(socket, data);
   });
 
   socket.on("show-end-winner", (data) => {
-    socketController.showEndWinner(socket, data);
+    adminSocketController.showEndWinner(socket, data);
+  });
+
+  socket.on("revive", (data) => {
+    adminSocketController.revive(socket, data);
   });
 });
 
