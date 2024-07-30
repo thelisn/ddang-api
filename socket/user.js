@@ -21,19 +21,17 @@ exports.login = async function (socket, value) {
   // 유저 정보
   User.belongsTo(Team, { foreignKey: "teamId" });
   const users = await User.findAll({ include: [Team] });
-  const userInfo = users.filter((v) => {
-    const _data = {
+  const userInfo = users
+    .filter((v) => v.name === value)
+    .map((v) => ({
       id: v.id,
       einumber: v.einumber,
       name: v.name,
       isAdmin: v.isAdmin,
       teamName: v.Team.name,
-    };
+    }));
 
-    return v.name === value && _data;
-  });
-
-  if (!!!userInfo.length) {
+  if (!userInfo.length) {
     return socket.emit("login", {
       error: true,
       msg: "사용자가 존재하지 않습니다.",
@@ -102,106 +100,55 @@ exports.joinQuiz = async function (socket, data) {
   Question.hasMany(Answer);
   Answer.belongsTo(Question, { foreignKey: "questionId" });
 
-  let questionData = {};
-  let currQuestion = null;
+  // 현재 진행중인 문제
+  const eventData = await Event.findOne({ where: { id: EVENTNUM }, attributes: ["currQuestion"] });
+  const currentQuestion = eventData.dataValues.currQuestion;
 
-  await Event.findAll({
-    where: {
-      id: EVENTNUM,
-    },
-    attributes: ["currQuestion"],
-  }).then(async (res) => {
-    currQuestion = res[0].dataValues.currQuestion;
+  const questionInfo = await Question.findOne({ where: { number: currentQuestion }, include: [Answer] });
+  const answers = questionInfo.Answers.map((answer) => ({ text: answer.dataValues.text }));
 
-    const questionInfo = await Question.findAll({
-      where: {
-        number: currQuestion,
-      },
-      include: [Answer],
-    });
-
-    let answers = [];
-    for (const answer of questionInfo[0].Answers) {
-      answers.push({ text: answer.dataValues.text });
-    }
-
-    questionData["number"] = questionInfo[0].dataValues.number;
-    questionData["question"] = questionInfo[0].dataValues.question;
-    questionData["type"] = questionInfo[0].dataValues.type;
-    questionData["answers"] = answers;
+  // 사용자가 탈락했는지 확인,
+  // 근데 매번 이거 생성되면 로그인 할 때 마다 생성되면 전체를 받아왔다고 가정하자. 그러면 새로 로그인하고 새로 로그인하고 그러면 답이 없어지는거 아닌가?
+  // 거기에서 빈틈이 있는데. 이거 All로 받든 One으로 받든 뭔가 create를 계속하면 의미가 없는데.
+  const isAlive = await UserAlive.findOne({ where: { einumber: data.einumber } }).then((res) => {
+    return !res.dataValues.deletedAt;
   });
 
-  // 사용자가 탈락했는지 확인
-  let isAlive = await UserAlive.findAll({
-    where: {
-      einumber: data.einumber,
-    },
-  }).then((res) => {
-    if (res[0].dataValues.deletedAt) {
-      return false;
-    } else {
-      return true;
-    }
-  });
+  const userAnswerInfo = await UserAnswer.findAll({ where: { einumber: data.einumber, questionId: currentQuestion } });
+  const selectedAnswer = userAnswerInfo[0]?.dataValues.answer;
+  const hasRow = userAnswerInfo.length;
 
-  questionData["isAlive"] = isAlive;
+  if (!hasRow) {
+    await UserAnswer.create({ questionId: currentQuestion, einumber: data.einumber });
 
-  // UserAnswer에 row 추가
-  await UserAnswer.findAll({
-    where: {
-      einumber: data.einumber,
-      questionId: currQuestion,
-    },
-  }).then(async (res) => {
-    if (!res.length) {
-      await UserAnswer.create({
-        questionId: currQuestion,
-        einumber: data.einumber,
-      });
+    // 퀴즈 푼 인원 업데이트
+    await QuestionStatus.update(
+      { totalUserCount: sequelize.literal("totalUserCount + 1") },
+      { where: { questionId: currentQuestion } }
+    );
+  }
 
-      // 퀴즈 푼 인원 업데이트
-      await QuestionStatus.update(
-        { totalUserCount: sequelize.literal("totalUserCount + 1") },
-        {
-          where: {
-            questionId: currQuestion,
-          },
-        }
-      );
-    } else {
-      await UserAnswer.findAll({
-        where: {
-          einumber: data.einumber,
-          questionId: currQuestion,
-        },
-      }).then((res) => {
-        if (res[0].dataValues.answer) {
-          questionData["selectedAnswer"] = res[0].dataValues.answer;
-        }
-      });
-    }
-  });
+  const questionData = {
+    number: questionInfo.dataValues.number,
+    question: questionInfo.dataValues.question,
+    type: questionInfo.dataValues.type,
+    answers,
+    isAlive,
+    selectedAnswer,
+  };
 
-  // socket.emit('join-quiz', questionData);
+  socket.emit("join-quiz", questionData);
   socket.broadcast.emit("join-quiz", questionData);
 };
 
 exports.selectAnswer = async function (socket, data) {
-  // 사용자가 보기 선택 시 User_Answer 테이블 생성 또는 업데이트
+  // 사용자가 보기 선택 시 User_Answer 테이블 업데이트
   await UserAnswer.findAll({
-    where: {
-      einumber: data.userInfo.einumber,
-      questionId: data.number,
-    },
-  }).then(async (res) => {
+    where: { einumber: data.userInfo.einumber, questionId: data.number },
+  }).then(async () => {
     await UserAnswer.update(
       { answer: data.answer },
-      {
-        where: {
-          einumber: data.userInfo.einumber,
-          questionId: data.number,
-        },
-      }
+      { where: { einumber: data.userInfo.einumber, questionId: data.number } }
     );
   });
 
@@ -209,92 +156,40 @@ exports.selectAnswer = async function (socket, data) {
 };
 
 exports.checkAnswer = async function (socket, data) {
-  // 유저가 선택한 답안
-  let userAnswer = await UserAnswer.findAll({
-    where: {
-      einumber: data.userInfo.einumber,
-      questionId: data.number,
-    },
-    attributes: ["answer"],
-  }).then((res) => {
-    if (res.length) {
-      return res[0].dataValues.answer;
-    }
+  // 정답 맞춘 사람 가져오기
+  User.belongsTo(Team, { foreignKey: "teamId" });
+
+  const correctUsers = await UserAnswer.findAll({ where: { questionId: data.number, answer: data.correctAnswer } });
+  const eiArray = correctUsers.map((v) => v.dataValues.einumber);
+  const userAnswer = correctUsers.find((v) => v.dataValues.einumber === data.userInfo.einumber);
+  const isCorrect = !!userAnswer;
+  const correctUserData = await User.findAll({ where: { einumber: eiArray }, include: [Team] }).then((res) => {
+    return res.map((v) => ({
+      id: v.dataValues.id,
+      einumber: v.dataValues.einumber,
+      name: v.dataValues.name,
+      isAdmin: v.dataValues.isAdmin,
+      team: v.dataValues.Team.dataValues.name,
+    }));
   });
+
+  // 문제 틀렸을 경우, 유저 deletedAt 업데이트
+  if (!isCorrect) await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: data.userInfo.einumber } });
 
   // 문제 가져오기
-  let questionData = await Question.findAll({
-    where: {
-      number: data.number,
-    },
-  }).then((res) => {
-    return res[0].dataValues;
-  });
+  const questionData = await Question.findOne({ where: { number: data.number } }).then((res) => res.dataValues);
+  const answerData = await Answer.findAll({ where: { questionId: data.number } }).then((res) =>
+    res.map((v) => v.dataValues)
+  );
 
-  let answerData = [];
-  await Answer.findAll({
-    where: {
-      questionId: data.number,
-    },
-  }).then((res) => {
-    for (const ele of res) {
-      answerData.push(ele.dataValues);
-    }
-  });
-
-  // 정답 맞춘 사람 가져오기
-  let eiArray = [];
-  await UserAnswer.findAll({
-    where: {
-      questionId: data.number,
-      answer: data.correctAnswer,
-    },
-  }).then((res) => {
-    for (let ele of res) {
-      eiArray.push(ele.dataValues.einumber);
-    }
-  });
-
-  let correctUserData = [];
-  User.belongsTo(Team, { foreignKey: "teamId" });
-  await User.findAll({
-    where: {
-      einumber: eiArray,
-    },
-    include: [Team],
-  }).then((res) => {
-    for (let ele of res) {
-      let obj = {};
-      obj["id"] = ele.dataValues.id;
-      obj["einumber"] = ele.dataValues.einumber;
-      obj["name"] = ele.dataValues.name;
-      obj["isAdmin"] = ele.dataValues.isAdmin;
-      obj["team"] = ele.dataValues.Team.dataValues.name;
-      correctUserData.push(obj);
-    }
-  });
-
-  let result = {
+  const result = {
     userAnswer,
     correctAnswer: data.correctAnswer,
     answerData,
     questionData,
     correctUserData,
+    isCorrect,
   };
 
-  // 정답 비교 후 유저에게 전달
-  if (userAnswer === data.correctAnswer) {
-    result["isCorrect"] = true;
-  } else {
-    result["isCorrect"] = false;
-    await UserAlive.update(
-      { deletedAt: "dead" },
-      {
-        where: {
-          einumber: data.userInfo.einumber,
-        },
-      }
-    );
-  }
   socket.emit("check-answer", result);
 };
