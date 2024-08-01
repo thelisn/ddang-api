@@ -111,7 +111,7 @@ exports.joinQuiz = async function (socket, data) {
   // 근데 매번 이거 생성되면 로그인 할 때 마다 생성되면 전체를 받아왔다고 가정하자. 그러면 새로 로그인하고 새로 로그인하고 그러면 답이 없어지는거 아닌가?
   // 거기에서 빈틈이 있는데. 이거 All로 받든 One으로 받든 뭔가 create를 계속하면 의미가 없는데.
   const isAlive = await UserAlive.findOne({ where: { einumber: data.einumber } }).then((res) => {
-    return !res.dataValues.deletedAt;
+    return !res?.dataValues.deletedAt;
   });
 
   const userAnswerInfo = await UserAnswer.findAll({ where: { einumber: data.einumber, questionId: currentQuestion } });
