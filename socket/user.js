@@ -21,6 +21,7 @@ exports.login = async function (socket, value) {
   // 유저 정보
   User.belongsTo(Team, { foreignKey: "teamId" });
   const users = await User.findAll({ include: [Team] });
+
   const userInfo = users
     .filter((v) => v.name === value)
     .map((v) => ({
@@ -162,7 +163,9 @@ exports.checkAnswer = async function (socket, data) {
   const correctUsers = await UserAnswer.findAll({ where: { questionId: data.number, answer: data.correctAnswer } });
   const eiArray = correctUsers.map((v) => v.dataValues.einumber);
   const userAnswer = correctUsers.find((v) => v.dataValues.einumber === data.userInfo.einumber);
+
   const isCorrect = !!userAnswer;
+  console.log(userAnswer, isCorrect);
   const correctUserData = await User.findAll({ where: { einumber: eiArray }, include: [Team] }).then((res) => {
     return res.map((v) => ({
       id: v.dataValues.id,

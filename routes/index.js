@@ -157,8 +157,6 @@ async function onQuizRefresh(req, res) {
   Question.hasMany(Answer);
   Answer.belongsTo(Question, { foreignKey: "questionId" });
 
-  console.log(req.query);
-
   const einumber = req.query.userInfo.einumber;
   let currQuestion = null;
 
