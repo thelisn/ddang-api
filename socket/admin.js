@@ -17,7 +17,6 @@ exports.joinAdminQuiz = async function (socket) {
     const _obj = {
       number: question.dataValues.number,
       question: question.dataValues.question,
-      type: question.dataValues.type,
       totalUserCount: question?.QuestionStatus?.totalUserCount ?? 0,
       correctUserCount: question?.QuestionStatus?.currentUserCount ?? 0,
       isStarted: !!question?.QuestionStatus,
@@ -38,7 +37,6 @@ exports.joinAdminQuiz = async function (socket) {
       einumber: user.dataValues.einumber,
       name: user.dataValues.name,
       teamName: user.dataValues.Team.dataValues.name,
-      teamColor: user.dataValues.Team.dataValues.color,
       isAlive: !user.dataValues?.UserAlives[0]?.dataValues.deletedAt,
     };
 
@@ -143,7 +141,6 @@ exports.showEndWinner = async function (socket) {
       einumber: user.dataValues.einumber,
       name: user.dataValues.name,
       teamName: user.dataValues.Team.dataValues.name,
-      teamColor: user.dataValues.Team.dataValues.color,
       isAlive: !user.dataValues?.UserAlives[0]?.dataValues.deletedAt,
     };
 

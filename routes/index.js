@@ -28,7 +28,6 @@ async function onAdminRefresh(req, res) {
 
     obj["number"] = question.dataValues.number;
     obj["question"] = question.dataValues.question;
-    obj["type"] = question.dataValues.type;
 
     if (question.QuestionStatus) {
       obj["totalUserCount"] = question.QuestionStatus.totalUserCount;
@@ -63,7 +62,6 @@ async function onAdminRefresh(req, res) {
     obj["einumber"] = user.dataValues.einumber;
     obj["name"] = user.dataValues.name;
     obj["teamName"] = user.dataValues.Team.dataValues.name;
-    obj["teamColor"] = user.dataValues.Team.dataValues.color;
 
     if (user.dataValues.UserAlives.length) {
       if (!user.dataValues.UserAlives[0].dataValues.deletedAt) {
@@ -175,7 +173,6 @@ async function onQuizRefresh(req, res) {
     return {
       number: questionInfo[0].dataValues.number,
       question: questionInfo[0].dataValues.question,
-      type: questionInfo[0].dataValues.type,
       answers: answers,
     };
   });
