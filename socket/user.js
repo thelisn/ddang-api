@@ -40,7 +40,10 @@ exports.login = async function (socket, value) {
   }
 
   // 사용자가 생존했는지 확인을 위한 테이블 생성
-  if (!userInfo.isAdmin) {
+  const hasUserAliveTable = await UserAlive.findOne({ where: { einumber: userInfo[0].einumber } });
+  const isCreateUserAliveTable = !userInfo[0].isAdmin && !hasUserAliveTable;
+
+  if (isCreateUserAliveTable) {
     UserAlive.create({
       userId: userInfo[0].id,
       deletedAt: null,
@@ -115,11 +118,32 @@ exports.joinQuiz = async function (socket, data) {
     return !res?.dataValues.deletedAt;
   });
 
-  const userAnswerInfo = await UserAnswer.findAll({ where: { einumber: data.einumber, questionId: currentQuestion } });
-  const selectedAnswer = userAnswerInfo[0]?.dataValues.answer;
-  const hasRow = userAnswerInfo.length;
+  UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
+  User.belongsTo(Team, { foreignKey: "teamId" });
 
-  if (!hasRow) {
+  const userAnswers = await UserAnswer.findAll({
+    where: { questionId: currentQuestion },
+    include: [
+      {
+        model: User,
+        include: [
+          {
+            model: Team,
+          },
+        ],
+      },
+    ],
+  });
+  const userAnswerInfo = userAnswers.map((v) => {
+    const _result = { ...v.dataValues, team: v.dataValues.User.dataValues.Team.dataValues.name };
+    delete _result.User;
+
+    return _result;
+  });
+  const selectUser = userAnswers.filter((v) => v.dataValues.einumber === data.einumber);
+  const selectedAnswer = selectUser[0]?.answer;
+
+  if (!selectUser.length) {
     await UserAnswer.create({ questionId: currentQuestion, einumber: data.einumber });
 
     // 퀴즈 푼 인원 업데이트
@@ -132,28 +156,48 @@ exports.joinQuiz = async function (socket, data) {
   const questionData = {
     number: questionInfo.dataValues.number,
     question: questionInfo.dataValues.question,
-    type: questionInfo.dataValues.type,
     answers,
     isAlive,
     selectedAnswer,
+    userAnswerInfo,
   };
 
   socket.emit("join-quiz", questionData);
-  socket.broadcast.emit("join-quiz", questionData);
 };
 
 exports.selectAnswer = async function (socket, data) {
+  UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
+  User.belongsTo(Team, { foreignKey: "teamId" });
+
   // 사용자가 보기 선택 시 User_Answer 테이블 업데이트
-  await UserAnswer.findAll({
-    where: { einumber: data.userInfo.einumber, questionId: data.number },
-  }).then(async () => {
-    await UserAnswer.update(
-      { answer: data.answer },
-      { where: { einumber: data.userInfo.einumber, questionId: data.number } }
-    );
+
+  await UserAnswer.update(
+    { answer: data.answer },
+    { where: { einumber: data.userInfo.einumber, questionId: data.number } }
+  );
+
+  const userAnswers = await UserAnswer.findAll({
+    where: { questionId: data.number },
+    include: [
+      {
+        model: User,
+        include: [
+          {
+            model: Team,
+          },
+        ],
+      },
+    ],
   });
 
-  socket.broadcast.emit("select-answer");
+  const userAnswerInfo = userAnswers.map((v) => {
+    const _result = { ...v.dataValues, team: v.dataValues.User.dataValues.Team.dataValues.name };
+    delete _result.User;
+
+    return _result;
+  });
+
+  socket.emit("select-answer", userAnswerInfo);
 };
 
 exports.checkAnswer = async function (socket, data) {
