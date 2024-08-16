@@ -124,12 +124,10 @@ exports.updateCurrentUser = async function (socket, data) {
 
   const result = { totalUser, currentUser };
 
-  console.log(result);
-
   socket.emit("update-current-user", result);
 };
 
-exports.showEndWinner = async function (socket) {
+exports.showEndWinner = async function (socket, callback) {
   // 유저정보 가져오기
   User.hasMany(UserAlive);
   User.belongsTo(Team, { foreignKey: "teamId" });
@@ -150,6 +148,16 @@ exports.showEndWinner = async function (socket) {
   const result = { userData };
 
   socket.broadcast.emit("show-end-winner", result);
+  callback({ result });
+};
+
+exports.reStartQuiz = async function (socket) {
+  await QuestionStatus.truncate();
+  await UserAnswer.truncate();
+  await UserAlive.update({ deletedAt: null }, { where: {} });
+  await Event.update({ currQuestion: null }, { where: { id: EVENTNUM } });
+
+  socket.broadcast.emit("re-start-quiz");
 };
 
 exports.revive = async function (socket, data) {

@@ -53,11 +53,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join-quiz", (data) => {
-    userSocketController.joinQuiz(socket, data);
+    userSocketController.joinQuiz(io, data);
   });
 
   socket.on("select-answer", (data) => {
-    userSocketController.selectAnswer(socket, data);
+    userSocketController.selectAnswer(io, data);
   });
 
   socket.on("check-answer", (data) => {
@@ -81,8 +81,12 @@ io.on("connection", (socket) => {
     adminSocketController.updateCurrentUser(socket, data);
   });
 
-  socket.on("show-end-winner", (data) => {
-    adminSocketController.showEndWinner(socket, data);
+  socket.on("show-end-winner", (callback) => {
+    adminSocketController.showEndWinner(socket, callback);
+  });
+
+  socket.on("re-start-quiz", () => {
+    adminSocketController.reStartQuiz(socket);
   });
 
   socket.on("revive", (data) => {
