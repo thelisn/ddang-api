@@ -139,7 +139,7 @@ exports.showEndWinner = async function (socket, callback) {
       einumber: user.dataValues.einumber,
       name: user.dataValues.name,
       teamName: user.dataValues.Team.dataValues.name,
-      isAlive: !user.dataValues?.UserAlives[0]?.dataValues.deletedAt,
+      isAlive: user.dataValues?.UserAlives[0]?.dataValues.deletedAt,
     };
 
     return _obj;

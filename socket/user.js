@@ -119,23 +119,21 @@ exports.joinQuiz = async function (io, data) {
   });
 
   UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
+  UserAnswer.belongsTo(UserAlive, { foreignKey: "einumber", targetKey: "einumber" });
   User.belongsTo(Team, { foreignKey: "teamId" });
 
   const selectUser = await UserAnswer.findOne({ where: { questionId: currentQuestion, einumber: data.einumber } });
 
   if (!selectUser) {
     await UserAnswer.create({ questionId: currentQuestion, einumber: data.einumber });
-
-    // 퀴즈 푼 인원 업데이트
-    await QuestionStatus.update(
-      { totalUserCount: sequelize.literal("totalUserCount + 1") },
-      { where: { questionId: currentQuestion } }
-    );
   }
 
   const userAnswers = await UserAnswer.findAll({
     where: { questionId: currentQuestion },
-    include: [{ model: User, include: [{ model: Team }] }],
+    include: [
+      { model: User, include: [{ model: Team }] },
+      { model: UserAlive, where: { deletedAt: null } },
+    ],
   });
   const userAnswerInfo = userAnswers.map((v) => {
     const _result = { ...v.dataValues, team: v.dataValues.User.dataValues.Team.dataValues.name };
@@ -144,6 +142,11 @@ exports.joinQuiz = async function (io, data) {
     return _result;
   });
   const selectedAnswer = selectUser?.answer;
+
+  // 퀴즈 푼 인원 업데이트
+  if (!selectUser) {
+    await QuestionStatus.update({ totalUserCount: userAnswerInfo.length }, { where: { questionId: currentQuestion } });
+  }
 
   const questionData = {
     number: questionInfo.dataValues.number,
@@ -154,7 +157,6 @@ exports.joinQuiz = async function (io, data) {
     userAnswerInfo,
   };
 
-  // io.broadcast.emit("join-quiz", questionData);
   io.emit("join-quiz", questionData);
 };
 
@@ -163,7 +165,6 @@ exports.selectAnswer = async function (io, data) {
   User.belongsTo(Team, { foreignKey: "teamId" });
 
   // 사용자가 보기 선택 시 User_Answer 테이블 업데이트
-
   await UserAnswer.update(
     { answer: data.answer },
     { where: { einumber: data.userInfo.einumber, questionId: data.number } }
@@ -175,7 +176,10 @@ exports.selectAnswer = async function (io, data) {
   });
 
   const userAnswerInfo = userAnswers.map((v) => {
-    const _result = { ...v.dataValues, team: v.dataValues.User.dataValues.Team.dataValues.name };
+    const _result = {
+      ...v.dataValues,
+      team: v.dataValues.User.dataValues.Team.dataValues.name,
+    };
     delete _result.User;
 
     return _result;
@@ -184,45 +188,62 @@ exports.selectAnswer = async function (io, data) {
   io.emit("select-answer", userAnswerInfo);
 };
 
-
-// @NOTE 선택지에 맞게끔 사람 인원수 보여주기 작업중.
 exports.checkAnswer = async function (socket, data) {
   // 정답 맞춘 사람 가져오기
-  UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
   User.belongsTo(Team, { foreignKey: "teamId" });
-
-  const userAnswers = await UserAnswer.findAll({
-    where: { questionId: data.number },
-    include: [{ model: User, include: [{ model: Team }] }],
-  });
-  const allUserAnswers = userAnswers.map((v) => ({
-    id: v.dataValues.User.dataValues.id,
-    einumber: v.dataValues.User.dataValues.einumber,
-    name: v.dataValues.User.dataValues.name,
-    isAdmin: v.dataValues.User.dataValues.isAdmin,
-    team: v.dataValues.User.dataValues.Team.dataValues.name,
-    answer: v.dataValues.answer,
-  }));
-  const userAnswer = allUserAnswers.find((v) => {
-    return v.einumber === data.userInfo.einumber && v.answer === data.correctAnswer;
-  });
-  const isCorrect = !!userAnswer;
-
-  // 문제 틀렸을 경우, 유저 deletedAt 업데이트
-  if (!isCorrect) await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: data.userInfo.einumber } });
+  UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
+  UserAnswer.belongsTo(Answer, { foreignKey: "answer", targetKey: "number" });
+  Answer.hasMany(UserAnswer, { foreignKey: "answer", sourceKey: "number" });
 
   // 문제 가져오기
   const questionData = await Question.findOne({ where: { number: data.number } }).then((res) => res.dataValues);
-  const answerData = await Answer.findAll({ where: { questionId: data.number } }).then((res) =>
-    res.map((v) => v.dataValues)
+  const answerData = await Answer.findAll({
+    where: { questionId: data.number },
+    include: [
+      {
+        model: UserAnswer,
+        required: false,
+        where: { questionId: data.number },
+        include: [{ model: User, include: [{ model: Team }] }],
+      },
+    ],
+  }).then((res) =>
+    res.map((v) => {
+      let userData = [];
+
+      if (!!v.dataValues.UserAnswers?.length) {
+        userData = v.dataValues.UserAnswers.map((j) => {
+          return {
+            einumber: j.dataValues.User.dataValues.einumber,
+            name: j.dataValues.User.dataValues.name,
+            team: j.dataValues.User.dataValues.Team.dataValues.name,
+            answer: j.dataValues.answer,
+          };
+        });
+      }
+
+      return {
+        number: v.dataValues.number,
+        text: v.dataValues.text,
+        userData,
+      };
+    })
   );
 
+  const userAnswer = await UserAnswer.findAll({ where: { questionId: data.number } });
+  const userEiNumberArray = userAnswer.filter((v) => v.answer === data.correctAnswer).map((v) => v.einumber);
+  const isCorrect = userEiNumberArray.includes(data.userInfo.einumber);
+  const userAliveEiNumberArray = await UserAlive.findAll().then((v) => v.map((v) => v.einumber));
+  const userWrongEiNumberArray = userAliveEiNumberArray.filter((v) => !userEiNumberArray.includes(v));
+
+  // 문제 틀렸을 경우, 유저 deletedAt 업데이트
+  await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: userWrongEiNumberArray } });
+
   const result = {
-    allUserAnswers,
-    userAnswer,
     correctAnswer: data.correctAnswer,
-    answerData,
     questionData,
+    answerData,
+    userAnswer: userAnswer.answer,
     isCorrect,
   };
 
