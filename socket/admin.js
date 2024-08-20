@@ -93,14 +93,22 @@ exports.showAnswer = async function (socket, data) {
     attributes: ["correctAnswer"],
   }).then((res) => res.dataValues.correctAnswer);
 
-  await UserAnswer.findAll({
+  const userAnswer = await UserAnswer.findAll({
     where: { questionId: data.currentQuestion._value, answer: correctAnswer },
-  }).then(async (res) => {
-    await QuestionStatus.update(
-      { correctUserCount: res.length, deletedAt: "finished" },
-      { where: { questionId: data.currentQuestion._value } }
-    );
   });
+  const answerEiNumberArray = userAnswer.map((v) => v.einumber);
+  const wrongUserEiNumberArray = await UserAlive.findAll().then((v) =>
+    v.reduce((acc, curr) => {
+      if (!answerEiNumberArray.includes(curr.einumber)) acc.push(curr.einumber);
+      return acc;
+    }, [])
+  );
+
+  await QuestionStatus.update(
+    { correctUserCount: userAnswer.length, deletedAt: "finished" },
+    { where: { questionId: data.currentQuestion._value } }
+  );
+  await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: wrongUserEiNumberArray } });
 
   // 현재 진행중인 문제 업데이트
   await Event.update({ currQuestion: null }, { where: { id: EVENTNUM } });
@@ -144,20 +152,39 @@ exports.showEndWinner = async function (socket, callback) {
 
     return _obj;
   });
+  await QuestionStatus.update({ deletedAt: "finished" }, { where: {} });
 
-  const result = { userData };
+  // 문제 가져오기
+  Question.hasOne(QuestionStatus);
+
+  const questionInfo = await Question.findAll({ include: [QuestionStatus] });
+  const questionData = questionInfo.map((question) => {
+    const _obj = {
+      number: question.dataValues.number,
+      question: question.dataValues.question,
+      totalUserCount: question?.QuestionStatus?.totalUserCount ?? 0,
+      correctUserCount: question?.QuestionStatus?.currentUserCount ?? 0,
+      isStarted: false,
+      isFinished: !!question?.QuestionStatus?.deletedAt,
+    };
+
+    return _obj;
+  });
+
+  const result = { userData, questionData };
 
   socket.broadcast.emit("show-end-winner", result);
-  callback({ result });
+  callback(result);
 };
 
-exports.reStartQuiz = async function (socket) {
+exports.reStartQuiz = async function (socket, callback) {
   await QuestionStatus.truncate();
   await UserAnswer.truncate();
-  await UserAlive.update({ deletedAt: null }, { where: {} });
+  await UserAlive.truncate();
   await Event.update({ currQuestion: null }, { where: { id: EVENTNUM } });
 
   socket.broadcast.emit("re-start-quiz");
+  callback();
 };
 
 exports.revive = async function (socket, data) {

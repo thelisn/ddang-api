@@ -85,8 +85,8 @@ io.on("connection", (socket) => {
     adminSocketController.showEndWinner(socket, callback);
   });
 
-  socket.on("re-start-quiz", () => {
-    adminSocketController.reStartQuiz(socket);
+  socket.on("re-start-quiz", (callback) => {
+    adminSocketController.reStartQuiz(socket, callback);
   });
 
   socket.on("revive", (data) => {
