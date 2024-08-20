@@ -158,31 +158,26 @@ async function onQuizRefresh(req, res) {
   const einumber = req.query.userInfo.einumber;
   let currQuestion = null;
 
-  // 사용자가 탈락했는지 확인
-  const isAlive = await UserAlive.findAll({ where: { einumber } }).then((res) => !res[0].dataValues.deletedAt);
   // 현재 문제 데이터 확인
-  const questionDataObj = await Event.findAll({
+  const eventData = await Event.findOne({
     where: { id: EVENTNUM },
     attributes: ["currQuestion"],
-  }).then(async (res) => {
-    currQuestion = res[0].dataValues.currQuestion;
-
-    const questionInfo = await Question.findAll({ where: { number: currQuestion }, include: [Answer] });
-    const answers = questionInfo[0].Answers.map((answer) => ({ text: answer.dataValues.text }));
-
-    return {
-      number: questionInfo[0].dataValues.number,
-      question: questionInfo[0].dataValues.question,
-      answers: answers,
-    };
   });
+  const currentQuestion = eventData.dataValues.currQuestion;
+  const questionInfo = await Question.findOne({ where: { number: currentQuestion }, include: [Answer] });
+  const answers = questionInfo.Answers.map((answer) => ({ text: answer.dataValues.text }));
+
   // 기존에 선택한 보기가 있는지 확인
-  const selectedAnswer = await UserAnswer.findAll({ where: { questionId: currQuestion, einumber } }).then((res) =>
-    !!res.length ? res[0].dataValues.answer : null
+  const selectedAnswer = await UserAnswer.findOne({ where: { questionId: currQuestion, einumber } }).then((res) =>
+    !!res?.dataValues?.answer ? res.dataValues.answer : null
   );
+  // 사용자가 탈락했는지 확인
+  const isAlive = await UserAlive.findOne({ where: { einumber } }).then((res) => !res.dataValues.deletedAt);
 
   const questionData = {
-    ...questionDataObj,
+    number: questionInfo.dataValues.number,
+    question: questionInfo.dataValues.question,
+    answers,
     selectedAnswer,
     isAlive,
   };
