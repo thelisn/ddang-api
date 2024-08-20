@@ -39,18 +39,6 @@ exports.login = async function (socket, value) {
     });
   }
 
-  // 사용자가 생존했는지 확인을 위한 테이블 생성
-  const hasUserAliveTable = await UserAlive.findOne({ where: { einumber: userInfo[0].einumber } });
-  const isCreateUserAliveTable = !userInfo[0].isAdmin && !hasUserAliveTable;
-
-  if (isCreateUserAliveTable) {
-    UserAlive.create({
-      userId: userInfo[0].id,
-      deletedAt: null,
-      einumber: userInfo[0].einumber,
-    });
-  }
-
   // 각 팀 정보
   const teamData = users.map((team) => ({
     einumber: team.einumber,
@@ -108,15 +96,25 @@ exports.joinQuiz = async function (io, data) {
   const eventData = await Event.findOne({ where: { id: EVENTNUM }, attributes: ["currQuestion"] });
   const currentQuestion = eventData.dataValues.currQuestion;
 
+  console.log(currentQuestion);
+
   const questionInfo = await Question.findOne({ where: { number: currentQuestion }, include: [Answer] });
   const answers = questionInfo.Answers.map((answer) => ({ text: answer.dataValues.text }));
 
-  // 사용자가 탈락했는지 확인,
-  // 근데 매번 이거 생성되면 로그인 할 때 마다 생성되면 전체를 받아왔다고 가정하자. 그러면 새로 로그인하고 새로 로그인하고 그러면 답이 없어지는거 아닌가?
-  // 거기에서 빈틈이 있는데. 이거 All로 받든 One으로 받든 뭔가 create를 계속하면 의미가 없는데.
-  const isAlive = await UserAlive.findOne({ where: { einumber: data.einumber } }).then((res) => {
-    return !res?.dataValues.deletedAt;
-  });
+  // 사용자가 생존했는지 확인을 위한 테이블 생성
+  const userAlive = await UserAlive.findOne({ where: { einumber: data.einumber } });
+  const isCreateUserAliveTable = !data.isAdmin && !userAlive;
+  let isAlive;
+
+  if (isCreateUserAliveTable) {
+    isAlive = UserAlive.create({
+      userId: data.id,
+      deletedAt: null,
+      einumber: data.einumber,
+    }).then((v) => v.dataValues.deletedAt !== "dead");
+  } else {
+    isAlive = userAlive.dataValues.deletedAt !== "dead";
+  }
 
   UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
   UserAnswer.belongsTo(UserAlive, { foreignKey: "einumber", targetKey: "einumber" });
@@ -230,14 +228,11 @@ exports.checkAnswer = async function (socket, data) {
     })
   );
 
-  const userAnswer = await UserAnswer.findAll({ where: { questionId: data.number } });
-  const userEiNumberArray = userAnswer.filter((v) => v.answer === data.correctAnswer).map((v) => v.einumber);
-  const isCorrect = userEiNumberArray.includes(data.userInfo.einumber);
-  const userAliveEiNumberArray = await UserAlive.findAll().then((v) => v.map((v) => v.einumber));
-  const userWrongEiNumberArray = userAliveEiNumberArray.filter((v) => !userEiNumberArray.includes(v));
+  const userAnswer = await UserAnswer.findOne({ where: { questionId: data.number, einumber: data.userInfo.einumber } });
+  const isCorrect = userAnswer.answer === data.correctAnswer;
 
   // 문제 틀렸을 경우, 유저 deletedAt 업데이트
-  await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: userWrongEiNumberArray } });
+  if (!isCorrect) await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: data.userInfo.einumber } });
 
   const result = {
     correctAnswer: data.correctAnswer,
