@@ -185,8 +185,76 @@ async function onQuizRefresh(req, res) {
   return res.json(questionData);
 }
 
+async function onResultRefresh(req, res) {
+  User.belongsTo(Team, { foreignKey: "teamId" });
+  UserAnswer.belongsTo(User, { foreignKey: "einumber", targetKey: "einumber" });
+  UserAnswer.belongsTo(Answer, { foreignKey: "answer", targetKey: "number" });
+  Answer.hasMany(UserAnswer, { foreignKey: "answer", sourceKey: "number" });
+
+  const currentQuestion = await QuestionStatus.findAll({ where: { deletedAt: "finished" } }).then(
+    (res) => res.at(-1).questionId
+  );
+  const correctAnswer = await Question.findOne({ where: { number: currentQuestion } }).then(
+    (res) => res.dataValues.correctAnswer
+  );
+
+  // 문제 가져오기
+  const questionData = await Question.findOne({ where: { number: currentQuestion } }).then((res) => res.dataValues);
+  const answerData = await Answer.findAll({
+    where: { questionId: currentQuestion },
+    include: [
+      {
+        model: UserAnswer,
+        required: false,
+        where: { questionId: currentQuestion },
+        include: [{ model: User, include: [{ model: Team }] }],
+      },
+    ],
+  }).then((res) =>
+    res.map((v) => {
+      let userData = [];
+
+      if (!!v.dataValues.UserAnswers?.length) {
+        userData = v.dataValues.UserAnswers.map((j) => {
+          return {
+            einumber: j.dataValues.User.dataValues.einumber,
+            name: j.dataValues.User.dataValues.name,
+            team: j.dataValues.User.dataValues.Team.dataValues.name,
+            answer: j.dataValues.answer,
+          };
+        });
+      }
+
+      return {
+        number: v.dataValues.number,
+        text: v.dataValues.text,
+        userData,
+      };
+    })
+  );
+
+  const userAnswer = await UserAnswer.findOne({
+    where: { questionId: currentQuestion, einumber: req.query.userInfo.einumber },
+  });
+  const isCorrect = userAnswer.answer === correctAnswer;
+
+  // 문제 틀렸을 경우, 유저 deletedAt 업데이트
+  if (!isCorrect) await UserAlive.update({ deletedAt: "dead" }, { where: { einumber: req.query.userInfo.einumber } });
+
+  const result = {
+    correctAnswer: correctAnswer,
+    questionData,
+    answerData,
+    userAnswer: userAnswer.answer,
+    isCorrect,
+  };
+
+  res.json(result);
+}
+
 router.get("/admin", onAdminRefresh);
 router.get("/waiting", onWaitingRefresh);
 router.get("/quiz", onQuizRefresh);
+router.get("/result", onResultRefresh);
 
 module.exports = router;
