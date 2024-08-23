@@ -2,6 +2,8 @@ const express = require("express");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
 const corsConfig = require("./config/cors");
@@ -35,12 +37,9 @@ app.use("/api", indexRouter);
 const userSocketController = require("./socket/user.js");
 const adminSocketController = require("./socket/admin.js");
 
-const http = require("http").createServer(express);
-const io = require("socket.io")(http, {
-  cors: {
-    origin: ["http://quiz.thelisn.com", "http://localhost:8080", "https://admin.socket.io"],
-  },
-});
+const server = http.createServer(app);
+const socketCors = { cors: { origin: "*" } }; // 추후 추가예정 "https://admin.socket.io"
+const io = new Server(server, socketCors);
 
 io.on("connection", (socket) => {
   // User
@@ -95,8 +94,8 @@ io.on("connection", (socket) => {
 });
 
 // Socket Port
-http.listen(3100, function () {
+server.listen(process.env.PORT, function () {
   console.log("socket io server listening on port 3100");
 });
 
-module.exports = app;
+module.exports = server;

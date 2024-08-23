@@ -1,34 +1,11 @@
-let app = require("../app");
+let server = require("../app");
 let debug = require("debug")("api:server");
-let http = require("http");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
-
 // API Port
-let port = normalizePort(process.env.PORT || "3000");
-app.set("port", port);
-let server = http.createServer(app);
-
-server.listen(port);
 server.on("error", onError);
 server.on("listening", onListening);
-
-function normalizePort(val) {
-  let port = parseInt(val, 10);
-
-  if (isNaN(port)) {
-    // named pipe
-    return val;
-  }
-
-  if (port >= 0) {
-    // port number
-    return port;
-  }
-
-  return false;
-}
 
 function onError(error) {
   if (error.syscall !== "listen") {
