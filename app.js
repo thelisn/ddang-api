@@ -73,8 +73,8 @@ io.on("connection", (socket) => {
     adminSocketController.startQuiz(socket, data);
   });
 
-  socket.on("show-answer", (data) => {
-    adminSocketController.showAnswer(socket, data);
+  socket.on("show-answer", (data, callback) => {
+    adminSocketController.showAnswer(socket, data, callback);
   });
 
   socket.on("update-current-user", (data) => {

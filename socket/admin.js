@@ -86,7 +86,7 @@ exports.startQuiz = async function (socket, data) {
   socket.broadcast.emit("start-quiz", true);
 };
 
-exports.showAnswer = async function (socket, data) {
+exports.showAnswer = async function (socket, data, callback) {
   // 정답 체크 후 맞은 인원 업데이트
   const correctAnswer = await Question.findOne({
     where: { number: data.currentQuestion._value },
@@ -113,12 +113,28 @@ exports.showAnswer = async function (socket, data) {
   // 현재 진행중인 문제 업데이트
   await Event.update({ currQuestion: null }, { where: { id: EVENTNUM } });
 
+  User.hasMany(UserAlive);
+  User.belongsTo(Team, { foreignKey: "teamId" });
+  UserAlive.belongsTo(User, { foreignKey: "userId" });
+
+  const userData = await User.findAll({
+    include: [UserAlive, Team],
+  }).then((v) =>
+    v.map((user) => ({
+      einumber: user.dataValues.einumber,
+      name: user.dataValues.name,
+      teamName: user.dataValues.Team.dataValues.name,
+      isAlive: user.dataValues.UserAlives.length && !user.dataValues.UserAlives[0].dataValues.deletedAt ? true : false,
+    }))
+  );
+
   const result = {
     correctAnswer,
     currentQuestion: data.currentQuestion._value,
   };
 
   socket.broadcast.emit("show-answer", result);
+  callback(userData);
 };
 
 exports.updateCurrentUser = async function (socket, data) {
