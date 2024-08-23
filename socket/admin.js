@@ -123,7 +123,7 @@ exports.showAnswer = async function (socket, data) {
 
 exports.updateCurrentUser = async function (socket, data) {
   const totalUser = await QuestionStatus.findOne({ where: { questionId: data } }).then(
-    (res) => 0 ?? res?.dataValues.totalUserCount
+    (res) => res?.dataValues.totalUserCount ?? 0
   );
 
   const currentUser = await UserAnswer.findAll({ where: { questionId: data, answer: { [Op.ne]: null } } }).then(

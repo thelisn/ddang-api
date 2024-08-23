@@ -96,8 +96,6 @@ exports.joinQuiz = async function (io, data) {
   const eventData = await Event.findOne({ where: { id: EVENTNUM }, attributes: ["currQuestion"] });
   const currentQuestion = eventData.dataValues.currQuestion;
 
-  console.log(currentQuestion);
-
   const questionInfo = await Question.findOne({ where: { number: currentQuestion }, include: [Answer] });
   const answers = questionInfo.Answers.map((answer) => ({ text: answer.dataValues.text }));
 
