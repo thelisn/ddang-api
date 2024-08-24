@@ -24,9 +24,6 @@ module.exports = (sequelize, DataTypes) => {
       question: {
         type: DataTypes.STRING(200),
       },
-      type: {
-        type: DataTypes.STRING(45),
-      },
       correctAnswer: {
         type: DataTypes.INTEGER,
       },

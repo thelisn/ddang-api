@@ -1,0 +1,35 @@
+config:
+  target: "http://localhost:3100"
+  phases:
+    - duration: 10
+      arrivalCount: 60
+scenarios:
+  - name: My Socket.IO test
+    engine: socketio # Enable the Socket.IO engine
+    flow:
+      - emit:
+          channel: "login"
+          data: "박철순"
+      - emit:
+          channel: "joinQuiz"
+          data:
+            "einumber": "JA000942"
+            "id": 3
+            "isAdmin": true
+            "name": "박철순"
+            "teamName": "모니모"
+      - think: 5
+      - loop:
+          - emit:
+              channel: "select-answer"
+              data:
+                # answer: "{{$randomNumber(1,4)}}"
+                answer: 1
+                number: 1
+                userInfo:
+                  - "einumber": "JA000942"
+                  - "id": 3
+                  - "isAdmin": true
+                  - "name": "박철순"
+                  - "teamName": "모니모"
+              coutn: 5

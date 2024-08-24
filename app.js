@@ -1,111 +1,101 @@
-const express = require('express')
-const session = require('express-session')
-const cookieParser = require('cookie-parser')
-const cors = require('cors')
-const corsConfig = require('./config/cors')
-let indexRouter = require('./routes/index')
-const db = require('./models');
+const express = require("express");
+const session = require("express-session");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
+
+const app = express();
+const corsConfig = require("./config/cors");
+const indexRouter = require("./routes/index");
+const db = require("./models");
 
 db.sequelize
-.sync()
-.then(() => {
-  console.log('DB 연결 성공하셨습니다.')
-})
-.catch(err => console.log(err))
-
-let app = express()
-app.use(cors(corsConfig))
-
-app.use(express.json())
-app.use(express.urlencoded({ extended: false }))
-app.use(cookieParser('lisn'))
-
-app.use(session({
-  resave: false,
-  saveUninitialized: false,
-  secret: 'lisn',
-  cookie: {
-    httpOnly: true
-  }
-}))
-
-
-app.use('/api', indexRouter)
-
-app.use(function(req, res) {
-  res.status(404)
-  res.json({
-    success: false,
-    message: 'error'
+  .sync()
+  .then(() => {
+    console.log("DB 연결 성공하셨습니다.");
   })
-})
+  .catch((err) => console.log(err));
 
-
+app.use(cors(corsConfig));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser("lisn"));
+app.use(
+  session({
+    resave: false,
+    saveUninitialized: false,
+    secret: "lisn",
+    cookie: {
+      httpOnly: true,
+    },
+  })
+);
+app.use("/api", indexRouter);
 
 // socket
-const socketController = require('./socket/index');
-const { Socket } = require('socket.io')
+const userSocketController = require("./socket/user.js");
+const adminSocketController = require("./socket/admin.js");
 
-const http = require('http').createServer(express);
-const io = require('socket.io')(http, {
-  cors: {
-    origin: ['http://quiz.thelisn.com', 'http://localhost:8080', 'https://admin.socket.io']
-  }
+const server = http.createServer(app);
+const socketCors = { cors: { origin: "*" } }; // 추후 추가예정 "https://admin.socket.io"
+const io = new Server(server, socketCors);
+
+io.on("connection", (socket) => {
+  // User
+  socket.on("login", (data) => {
+    userSocketController.login(socket, data);
+  });
+
+  socket.on("rejoin", (data) => {
+    userSocketController.rejoin(socket, data);
+  });
+
+  socket.on("join-quiz", (data) => {
+    userSocketController.joinQuiz(io, data);
+  });
+
+  socket.on("select-answer", (data) => {
+    userSocketController.selectAnswer(io, data);
+  });
+
+  socket.on("check-answer", (data) => {
+    userSocketController.checkAnswer(socket, data);
+  });
+
+  // Admin
+  socket.on("join-admin-quiz", (data) => {
+    adminSocketController.joinAdminQuiz(socket, data);
+  });
+
+  socket.on("start-quiz", (data) => {
+    adminSocketController.startQuiz(socket, data);
+  });
+
+  socket.on("show-answer", (data, callback) => {
+    adminSocketController.showAnswer(socket, data, callback);
+  });
+
+  socket.on("update-current-user", (data) => {
+    adminSocketController.updateCurrentUser(socket, data);
+  });
+
+  socket.on("show-end-winner", (callback) => {
+    adminSocketController.showEndWinner(socket, callback);
+  });
+
+  socket.on("re-start-quiz", (callback) => {
+    adminSocketController.reStartQuiz(socket, callback);
+  });
+
+  socket.on("revive", (data) => {
+    adminSocketController.revive(socket, data);
+  });
 });
 
-io.on('connection', (socket) => {
-  socket.on('login', (data) => {
-    socketController.login(socket, data);
-  });
-
-  socket.on('join-quiz', (data) => {
-    socketController.joinQuiz(socket, data);
-  });
-
-  socket.on('join-admin-quiz', (data) => {
-    socketController.joinAdminQuiz(socket, data);
-  });
-
-  socket.on('start-quiz', (data) => {
-    socketController.startQuiz(socket, data);
-  });
-
-  socket.on('select-answer', (data) => {
-    socketController.selectAnswer(socket, data);
-  });
-
-  socket.on('show-answer', (data) => {
-    socketController.showAnswer(socket, data);
-  });
-
-  socket.on('check-answer', (data) => {
-    socketController.checkAnswer(socket, data);
-  });
-
-  socket.on('rejoin', (data) => {
-    socketController.rejoin(socket, data);
-  });
-
-  socket.on('revive', (data) => {
-    socketController.revive(socket, data);
-  });
-  
-  socket.on('test', (data) => {
-    socketController.testSocket(socket, data);
-  });
-
-  socket.on('update-current-user', (data) => {
-    socketController.updateCurrentUser(socket, data);
-  });
-
-  socket.on('show-end-winner', (data) => {
-    socketController.showEndWinner(socket, data);
-  });
-
-})
-
-http.listen(3100, function() {
-  console.log('socket io server listening on port 3100')
+// Socket Port
+server.listen(process.env.PORT, function () {
+  console.log("socket io server listening on port 3100");
 });
 
-module.exports = app
+module.exports = server;
