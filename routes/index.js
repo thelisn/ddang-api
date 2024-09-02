@@ -69,6 +69,8 @@ async function onAdminRefresh(req, res) {
       } else {
         obj["isAlive"] = false;
       }
+    } else {
+      obj["isAlive"] = null;
     }
 
     userData.push(obj);
@@ -120,16 +122,20 @@ async function onAdminRefresh(req, res) {
 
 async function onWaitingRefresh(req, res) {
   // 전체 유저 정보
+  User.hasMany(UserAlive);
   User.belongsTo(Team, { foreignKey: "teamId" });
+  UserAlive.belongsTo(User, { foreignKey: "userId" });
 
-  const userInfo = await User.findAll({
-    include: [Team],
-  });
+  const userInfo = await User.findAll({ include: [UserAlive, Team] });
 
   let userData = [];
+
   for (const user of userInfo) {
     let obj = {};
-    (obj["einumber"] = user.einumber), (obj["name"] = user.name), (obj["team"] = user.Team.name);
+    obj["einumber"] = user.einumber;
+    obj["name"] = user.name;
+    obj["team"] = user.Team.name;
+    obj["isEnter"] = !!user?.UserAlives.length;
 
     userData.push(obj);
   }

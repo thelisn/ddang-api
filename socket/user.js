@@ -8,8 +8,6 @@ const { Event } = require("../models");
 const { Answer } = require("../models");
 const EVENTNUM = 1;
 
-// @NOTE login 자체는 axios로 받고 별도로 wating 전용 socket 뚫어줘야 할 듯.
-// 그러면 rejoin을 굳이 안써도 될 것 같은데.
 exports.login = async function (socket, value) {
   if (!value) {
     return socket.emit("login", {
@@ -19,8 +17,10 @@ exports.login = async function (socket, value) {
   }
 
   // 유저 정보
+  User.hasMany(UserAlive);
   User.belongsTo(Team, { foreignKey: "teamId" });
-  const users = await User.findAll({ include: [Team] });
+  UserAlive.belongsTo(User, { foreignKey: "userId" });
+  const users = await User.findAll({ include: [UserAlive, Team] });
 
   const userInfo = users
     .filter((v) => v.name === value)
@@ -44,6 +44,7 @@ exports.login = async function (socket, value) {
     einumber: team.einumber,
     name: team.name,
     team: team.Team.name,
+    isEnter: !!team?.UserAlives.length,
   }));
 
   // 현재 진행중인 문제
@@ -69,13 +70,16 @@ exports.login = async function (socket, value) {
 
 exports.rejoin = async function (socket) {
   // 전체 인원 정보
+  User.hasMany(UserAlive);
   User.belongsTo(Team, { foreignKey: "teamId" });
+  UserAlive.belongsTo(User, { foreignKey: "userId" });
 
-  const teamInfo = await User.findAll({ include: [Team] });
+  const teamInfo = await User.findAll({ include: [UserAlive, Team] });
   const teamData = teamInfo.map((team) => ({
     einumber: team.einumber,
     name: team.name,
     team: team.Team.name,
+    isEnter: !!team?.UserAlives.length,
   }));
 
   // 현재 진행중인 문제
