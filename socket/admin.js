@@ -37,7 +37,7 @@ exports.joinAdminQuiz = async function (socket) {
       einumber: user.dataValues.einumber,
       name: user.dataValues.name,
       teamName: user.dataValues.Team.dataValues.name,
-      isAlive: !user.dataValues?.UserAlives[0]?.dataValues.deletedAt,
+      isAlive: user.dataValues.UserAlives.length ? !user.dataValues?.UserAlives[0]?.dataValues.deletedAt : null,
     };
 
     return _obj;
@@ -124,7 +124,7 @@ exports.showAnswer = async function (socket, data, callback) {
       einumber: user.dataValues.einumber,
       name: user.dataValues.name,
       teamName: user.dataValues.Team.dataValues.name,
-      isAlive: user.dataValues.UserAlives.length && !user.dataValues.UserAlives[0].dataValues.deletedAt ? true : false,
+      isAlive: user.dataValues.UserAlives.length ? !user.dataValues?.UserAlives[0]?.dataValues.deletedAt : null,
     }))
   );
 
